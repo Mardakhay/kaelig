@@ -2,6 +2,8 @@ export { gameQueryKeys } from './api/queryKeys'
 export { gameService } from './api/gameService'
 export {
   useGameDetailsQuery,
+  useGameMoviesQuery,
+  useGameScreenshotsQuery,
   useGamesQuery,
   useInfiniteGamesQuery,
   usePrefetchNextGamesPage,
@@ -14,7 +16,9 @@ export type {
   RawgDeveloper,
   RawgGame,
   RawgGameDetails,
+  RawgGameMovie,
   RawgGamePlatform,
+  RawgGameScreenshot,
   RawgGenre,
   RawgPaginatedResponse,
   RawgPlatform,
