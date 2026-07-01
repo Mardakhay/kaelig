@@ -24,6 +24,9 @@ import {
   useGamesQuery,
 } from '@entities/game'
 
+const fallbackImage =
+  'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80'
+
 const motionSection = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0 },
@@ -63,7 +66,7 @@ export function GamePage() {
   const screenshots = screenshotsQuery.data?.results ?? []
   const trailer = moviesQuery.data?.results[0]
   const galleryImages = [
-    details.background_image,
+    details.background_image ?? fallbackImage,
     ...screenshots.slice(0, 6).map(item => item.image),
   ].filter((image): image is string => Boolean(image))
 
@@ -146,7 +149,7 @@ export function GamePage() {
 
           <div className="relative min-h-[24rem] bg-muted lg:min-h-[36rem]">
             <img
-              src={details.background_image ?? galleryImages[0]}
+              src={details.background_image ?? fallbackImage}
               alt={details.name}
               className="h-full w-full object-cover"
               loading="eager"
