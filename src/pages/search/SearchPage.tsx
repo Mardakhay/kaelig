@@ -7,7 +7,9 @@ import {
   mapRawgGameToGameCard,
   useGamesQuery,
   type GameCardGame,
+  type GameListParams,
 } from '@entities/game'
+import { GameFilters, type GameFilterValues } from '@features/game-filters'
 
 const searchPageSize = 12
 const suggestionsLimit = 5
@@ -24,10 +26,26 @@ function useDebouncedValue<TValue>(value: TValue, delay: number) {
   return debouncedValue
 }
 
+function yearToDates(year?: string) {
+  return year ? `${year}-01-01,${year}-12-31` : undefined
+}
+
+function hasActiveFilters(filters: GameFilterValues) {
+  return Object.values(filters).some(Boolean)
+}
+
 export function SearchPage() {
   const navigate = useNavigate({ from: '/search' })
   const search = useSearch({ from: '/search' })
   const queryFromUrl = search.q ?? ''
+  const filters: GameFilterValues = {
+    genre: search.genre,
+    platform: search.platform,
+    year: search.year,
+    metacritic: search.metacritic,
+    rating: search.rating,
+    ordering: search.ordering,
+  }
   const [searchValue, setSearchValue] = useState(queryFromUrl)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
@@ -35,6 +53,18 @@ export function SearchPage() {
   const listboxId = useId()
   const debouncedSearch = useDebouncedValue(searchValue.trim(), 300)
   const submittedSearch = queryFromUrl.trim()
+  const filtersAreActive = hasActiveFilters(filters)
+  const resultsEnabled = submittedSearch.length > 0 || filtersAreActive
+  const resultParams: GameListParams = {
+    search: submittedSearch || undefined,
+    page_size: searchPageSize,
+    genres: filters.genre,
+    parent_platforms: filters.platform,
+    dates: yearToDates(filters.year),
+    metacritic: filters.metacritic,
+    rating: filters.rating,
+    ordering: filters.ordering || undefined,
+  }
 
   const suggestionsQuery = useGamesQuery(
     {
@@ -43,13 +73,7 @@ export function SearchPage() {
     },
     { enabled: debouncedSearch.length > 1 }
   )
-  const resultsQuery = useGamesQuery(
-    {
-      search: submittedSearch,
-      page_size: searchPageSize,
-    },
-    { enabled: submittedSearch.length > 0 }
-  )
+  const resultsQuery = useGamesQuery(resultParams, { enabled: resultsEnabled })
 
   const suggestions = useMemo(
     () => suggestionsQuery.data?.results.map(mapRawgGameToGameCard) ?? [],
@@ -72,26 +96,42 @@ export function SearchPage() {
   const activeSuggestionId =
     activeSuggestionIndex >= 0 ? `${listboxId}-${activeSuggestionIndex}` : undefined
 
-  function submitSearch(nextQuery = searchValue) {
+  function navigateWithSearch(nextQuery: string, nextFilters: GameFilterValues, replace = false) {
     const trimmedQuery = nextQuery.trim()
-    setSuggestionsOpen(false)
-    setActiveSuggestionIndex(-1)
 
     void navigate({
-      search: trimmedQuery ? { q: trimmedQuery } : {},
-      replace: false,
+      search: {
+        q: trimmedQuery || undefined,
+        genre: nextFilters.genre,
+        platform: nextFilters.platform,
+        year: nextFilters.year,
+        metacritic: nextFilters.metacritic,
+        rating: nextFilters.rating,
+        ordering: nextFilters.ordering,
+      },
+      replace,
     })
+  }
+
+  function submitSearch(nextQuery = searchValue) {
+    setSuggestionsOpen(false)
+    setActiveSuggestionIndex(-1)
+    navigateWithSearch(nextQuery, filters)
   }
 
   function clearSearch() {
     setSearchValue('')
     setSuggestionsOpen(false)
     setActiveSuggestionIndex(-1)
+    navigateWithSearch('', filters)
+  }
 
-    void navigate({
-      search: {},
-      replace: false,
-    })
+  function updateFilters(nextFilters: GameFilterValues) {
+    navigateWithSearch(submittedSearch, nextFilters, true)
+  }
+
+  function clearFilters() {
+    navigateWithSearch(submittedSearch, {}, true)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -129,7 +169,7 @@ export function SearchPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-foreground">Search games</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Find games by title and jump into live RAWG results with keyboard-friendly suggestions.
+            Find games by title and refine live RAWG results by genre, platform, year, score, rating, and order.
           </p>
         </div>
 
@@ -216,36 +256,49 @@ export function SearchPage() {
         </form>
       </section>
 
-      <section className="space-y-4" aria-live="polite">
-        <div className="flex items-end justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold text-foreground">Results</h2>
-            <p className="text-sm text-muted-foreground">
-              {submittedSearch ? `Showing matches for "${submittedSearch}"` : 'Submit a search to see results.'}
-            </p>
-          </div>
-        </div>
+      <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+        <GameFilters
+          values={filters}
+          onChange={updateFilters}
+          onClear={clearFilters}
+          className="min-w-0"
+        />
 
-        {!submittedSearch && <EmptySearchState />}
-        {submittedSearch && resultsQuery.isLoading && <ResultsSkeleton />}
-        {submittedSearch && !resultsQuery.isLoading && resultsQuery.error && (
-          <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">
-            {resultsQuery.error.message}
+        <section className="min-w-0 space-y-4" aria-live="polite">
+          <div className="flex items-end justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-foreground">Results</h2>
+              <p className="text-sm text-muted-foreground">
+                {resultsEnabled
+                  ? submittedSearch
+                    ? `Showing matches for "${submittedSearch}"`
+                    : 'Showing filtered games'
+                  : 'Submit a search or choose filters to see results.'}
+              </p>
+            </div>
           </div>
-        )}
-        {submittedSearch && !resultsQuery.isLoading && !resultsQuery.error && results.length === 0 && (
-          <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-            No games matched your search.
-          </div>
-        )}
-        {submittedSearch && !resultsQuery.isLoading && !resultsQuery.error && results.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {results.map(game => (
-              <GameCard key={game.id} game={game} />
-            ))}
-          </div>
-        )}
-      </section>
+
+          {!resultsEnabled && <EmptySearchState />}
+          {resultsEnabled && resultsQuery.isLoading && <ResultsSkeleton />}
+          {resultsEnabled && !resultsQuery.isLoading && resultsQuery.error && (
+            <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">
+              {resultsQuery.error.message}
+            </div>
+          )}
+          {resultsEnabled && !resultsQuery.isLoading && !resultsQuery.error && results.length === 0 && (
+            <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
+              No games matched your search and filters.
+            </div>
+          )}
+          {resultsEnabled && !resultsQuery.isLoading && !resultsQuery.error && results.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {results.map(game => (
+                <GameCard key={game.id} game={game} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   )
 }
@@ -253,14 +306,14 @@ export function SearchPage() {
 function EmptySearchState() {
   return (
     <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
-      Type a title, choose a suggestion, or press Enter to search.
+      Type a title, choose filters, or press Enter to search.
     </div>
   )
 }
 
 function ResultsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, index) => (
         <GameCardSkeleton key={index} />
       ))}
