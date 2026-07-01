@@ -65,16 +65,27 @@ export function SearchPage() {
   const submittedSearch = queryFromUrl.trim()
   const filtersAreActive = hasActiveFilters(filters)
   const resultsEnabled = submittedSearch.length > 0 || filtersAreActive
-  const resultParams: GameListParams = {
-    search: submittedSearch || undefined,
-    page_size: searchPageSize,
-    genres: filters.genre,
-    parent_platforms: filters.platform,
-    dates: yearToDates(filters.year),
-    metacritic: filters.metacritic,
-    rating: filters.rating,
-    ordering: filters.ordering || undefined,
-  }
+  const resultParams = useMemo<GameListParams>(
+    () => ({
+      search: submittedSearch || undefined,
+      page_size: searchPageSize,
+      genres: filters.genre,
+      parent_platforms: filters.platform,
+      dates: yearToDates(filters.year),
+      metacritic: filters.metacritic,
+      rating: filters.rating,
+      ordering: filters.ordering || undefined,
+    }),
+    [
+      filters.genre,
+      filters.metacritic,
+      filters.ordering,
+      filters.platform,
+      filters.rating,
+      filters.year,
+      submittedSearch,
+    ]
+  )
   const prefetchNextPage = usePrefetchNextGamesPage(resultParams)
 
   const suggestionsQuery = useGamesQuery(
@@ -85,6 +96,14 @@ export function SearchPage() {
     { enabled: debouncedSearch.length > 1 }
   )
   const resultsQuery = useInfiniteGamesQuery(resultParams, { enabled: resultsEnabled })
+  const {
+    data: resultsData,
+    error: resultsError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: resultsLoading,
+  } = resultsQuery
 
   const suggestions = useMemo(
     () => suggestionsQuery.data?.results.map(mapRawgGameToGameCard) ?? [],
@@ -92,10 +111,10 @@ export function SearchPage() {
   )
   const results = useMemo(
     () =>
-      resultsQuery.data?.pages.flatMap(page =>
+      resultsData?.pages.flatMap(page =>
         page.results.map(mapRawgGameToGameCard)
       ) ?? [],
-    [resultsQuery.data]
+    [resultsData]
   )
 
   useEffect(() => {
@@ -118,12 +137,8 @@ export function SearchPage() {
       entries => {
         const [entry] = entries
 
-        if (
-          entry.isIntersecting &&
-          resultsQuery.hasNextPage &&
-          !resultsQuery.isFetchingNextPage
-        ) {
-          void resultsQuery.fetchNextPage()
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          void fetchNextPage()
         }
       },
       { rootMargin: '480px 0px' }
@@ -132,13 +147,13 @@ export function SearchPage() {
     observer.observe(loadMoreElement)
 
     return () => observer.disconnect()
-  }, [resultsEnabled, resultsQuery])
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, resultsEnabled])
 
   useEffect(() => {
-    if (resultsQuery.hasNextPage && resultsQuery.data?.pages.length) {
-      prefetchNextPage(resultsQuery.data.pages.length + 1)
+    if (hasNextPage && resultsData?.pages.length) {
+      prefetchNextPage(resultsData.pages.length + 1)
     }
-  }, [prefetchNextPage, resultsQuery.data?.pages.length, resultsQuery.hasNextPage])
+  }, [hasNextPage, prefetchNextPage, resultsData?.pages.length])
 
   const activeSuggestionId =
     activeSuggestionIndex >= 0 ? `${listboxId}-${activeSuggestionIndex}` : undefined
@@ -326,18 +341,18 @@ export function SearchPage() {
           </div>
 
           {!resultsEnabled && <EmptySearchState />}
-          {resultsEnabled && resultsQuery.isLoading && <ResultsSkeleton />}
-          {resultsEnabled && !resultsQuery.isLoading && resultsQuery.error && (
+          {resultsEnabled && resultsLoading && <ResultsSkeleton />}
+          {resultsEnabled && !resultsLoading && resultsError && (
             <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">
-              {resultsQuery.error.message}
+              {resultsError.message}
             </div>
           )}
-          {resultsEnabled && !resultsQuery.isLoading && !resultsQuery.error && results.length === 0 && (
+          {resultsEnabled && !resultsLoading && !resultsError && results.length === 0 && (
             <div className="rounded-lg border border-border bg-card p-6 text-sm text-muted-foreground">
               No games matched your search and filters.
             </div>
           )}
-          {resultsEnabled && !resultsQuery.isLoading && !resultsQuery.error && results.length > 0 && (
+          {resultsEnabled && !resultsLoading && !resultsError && results.length > 0 && (
             <>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {results.map(game => (
@@ -347,8 +362,8 @@ export function SearchPage() {
 
               <div ref={loadMoreRef} className="min-h-12" aria-hidden="true" />
 
-              {resultsQuery.isFetchingNextPage && <ResultsSkeleton />}
-              {!resultsQuery.hasNextPage && (
+              {isFetchingNextPage && <ResultsSkeleton />}
+              {!hasNextPage && (
                 <p className="rounded-lg border border-border bg-card p-4 text-center text-sm text-muted-foreground">
                   You reached the end of the results.
                 </p>
