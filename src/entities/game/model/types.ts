@@ -39,6 +39,20 @@ export interface RawgShortScreenshot {
   image: string
 }
 
+export interface RawgGameScreenshot {
+  id: number
+  image: string
+}
+
+export interface RawgGameMovie {
+  id: number
+  name: string
+  preview: string
+  data: {
+    max: string
+  }
+}
+
 export interface RawgGamePlatform {
   platform: RawgPlatform
   released_at?: string
