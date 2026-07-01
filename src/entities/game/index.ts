@@ -1,6 +1,11 @@
 export { gameQueryKeys } from './api/queryKeys'
 export { gameService } from './api/gameService'
-export { useGameDetailsQuery, useGamesQuery } from './api/useGamesQuery'
+export {
+  useGameDetailsQuery,
+  useGamesQuery,
+  useInfiniteGamesQuery,
+  usePrefetchNextGamesPage,
+} from './api/useGamesQuery'
 export { mapRawgGameToGameCard } from './lib/mapRawgGameToGameCard'
 export { GameCard, GameCardSkeleton } from './ui/GameCard'
 export type { GameCardGame } from './ui/GameCard'
