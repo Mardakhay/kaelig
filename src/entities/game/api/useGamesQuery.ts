@@ -3,10 +3,18 @@ import { type GameListParams } from '../model/types'
 import { gameQueryKeys } from './queryKeys'
 import { gameService } from './gameService'
 
-export function useGamesQuery(params: GameListParams = {}) {
+interface UseGamesQueryOptions {
+  enabled?: boolean
+}
+
+export function useGamesQuery(
+  params: GameListParams = {},
+  options: UseGamesQueryOptions = {}
+) {
   return useQuery({
     queryKey: gameQueryKeys.list(params),
     queryFn: ({ signal }) => gameService.getGames(params, signal),
+    enabled: options.enabled,
   })
 }
 
