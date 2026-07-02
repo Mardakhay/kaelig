@@ -1,6 +1,6 @@
 import { assertRawgApiKey, env } from '@shared/config/env'
 
-type RequestParams = Record<string, string | number | boolean | null | undefined>
+type RequestParams = { [key: string]: string | number | boolean | null | undefined }
 
 interface RawgErrorPayload {
   detail?: string

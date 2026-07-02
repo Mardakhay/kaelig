@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
 } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import {
   GameCard,
@@ -15,13 +16,25 @@ import {
   useGamesQuery,
   useInfiniteGamesQuery,
   usePrefetchNextGamesPage,
-  type GameCardGame,
   type GameListParams,
 } from '@entities/game'
 import { GameFilters, type GameFilterValues } from '@features/game-filters'
 
 const searchPageSize = 12
 const suggestionsLimit = 5
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0 },
+}
 
 function useDebouncedValue<TValue>(value: TValue, delay: number) {
   const [debouncedValue, setDebouncedValue] = useState(value)
@@ -354,11 +367,20 @@ export function SearchPage() {
           )}
           {resultsEnabled && !resultsLoading && !resultsError && results.length > 0 && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {results.map(game => (
-                  <GameCard key={game.id} game={game} />
-                ))}
-              </div>
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+              >
+                <AnimatePresence mode="popLayout">
+                  {results.map(game => (
+                    <motion.div key={game.id} variants={itemVariants} layout>
+                      <GameCard game={game} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
 
               <div ref={loadMoreRef} className="min-h-12" aria-hidden="true" />
 

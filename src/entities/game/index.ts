@@ -11,6 +11,14 @@ export {
 export { mapRawgGameToGameCard } from './lib/mapRawgGameToGameCard'
 export { GameCard, GameCardSkeleton } from './ui/GameCard'
 export type { GameCardGame } from './ui/GameCard'
+export {
+  useLibraryStore,
+  useLibraryStats,
+} from './model/libraryStore'
+export type {
+  LibraryStatus,
+  LibraryGame,
+} from './model/libraryStore'
 export type {
   GameListParams,
   RawgDeveloper,

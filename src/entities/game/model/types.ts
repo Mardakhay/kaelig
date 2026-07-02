@@ -93,6 +93,7 @@ export interface RawgPaginatedResponse<TItem> {
 }
 
 export interface GameListParams {
+  [key: string]: string | number | boolean | null | undefined
   page?: number
   page_size?: number
   search?: string

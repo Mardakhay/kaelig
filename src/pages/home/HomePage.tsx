@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import { ArrowRight, Clock, Flame, RefreshCcw, Sparkles, Trophy } from 'lucide-react'
 import {
   GameCard,
@@ -31,6 +32,26 @@ const upcomingEndDate = new Date(today)
 upcomingEndDate.setFullYear(today.getFullYear() + 1)
 const newReleaseStartDate = new Date(today)
 newReleaseStartDate.setDate(today.getDate() - 90)
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+}
+
+const sectionVariants = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+}
 
 export function HomePage() {
   const trendingQuery = useGamesQuery({
@@ -94,17 +115,31 @@ export function HomePage() {
   ]
 
   return (
-    <div className="space-y-10 px-4 py-6 sm:px-6 lg:px-8">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-10 px-4 py-6 sm:px-6 lg:px-8"
+    >
       <HeroSection
         featuredGame={featuredGame}
         isLoading={trendingQuery.isLoading}
         error={trendingQuery.error}
       />
 
-      {sections.map(section => (
-        <GameShelf key={section.title} section={section} />
+      {sections.map((section, index) => (
+        <motion.div
+          key={section.title}
+          variants={sectionVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ delay: index * 0.1 }}
+        >
+          <GameShelf section={section} />
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   )
 }
 
@@ -118,25 +153,45 @@ function HeroSection({
   error: Error | null
 }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="overflow-hidden rounded-lg border border-border bg-card"
+    >
       <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="flex flex-col justify-center gap-6 p-6 sm:p-8 lg:p-10">
           <div className="space-y-3">
-            <span className="inline-flex w-fit items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+            <motion.span
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="inline-flex w-fit items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm font-semibold text-primary"
+            >
               <Flame className="h-4 w-4" />
               Featured now
-            </span>
-            <div className="space-y-4">
+            </motion.span>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="space-y-4"
+            >
               <h1 className="max-w-2xl text-4xl font-bold leading-tight text-foreground sm:text-5xl">
                 Discover your next favorite game.
               </h1>
               <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
                 Browse live picks across trending, popular, upcoming, and newly released games.
               </p>
-            </div>
+            </motion.div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="flex flex-wrap gap-3"
+          >
             <a
               href="#trending"
               className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
@@ -150,10 +205,15 @@ function HeroSection({
             >
               New releases
             </a>
-          </div>
+          </motion.div>
         </div>
 
-        <div className="relative min-h-80 overflow-hidden bg-muted lg:min-h-[30rem]">
+        <motion.div
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="relative min-h-80 overflow-hidden bg-muted lg:min-h-[30rem]"
+        >
           {isLoading && <HeroSkeleton />}
           {!isLoading && error && <HeroError error={error} />}
           {!isLoading && !error && featuredGame && (
@@ -165,14 +225,19 @@ function HeroSection({
                 loading="eager"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/10 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="absolute bottom-0 left-0 right-0 p-5 sm:p-6"
+              >
                 <GameCard game={featuredGame} className="max-w-sm bg-card/90 backdrop-blur" />
-              </div>
+              </motion.div>
             </>
           )}
-        </div>
+        </motion.div>
       </div>
-    </section>
+    </motion.section>
   )
 }
 
@@ -195,11 +260,18 @@ function GameShelf({ section }: { section: GameSection }) {
       {section.isLoading && <GameShelfSkeleton />}
       {!section.isLoading && section.error && <GameShelfError error={section.error} />}
       {!section.isLoading && !section.error && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        >
           {section.games.map(game => (
-            <GameCard key={`${section.title}-${game.id}`} game={game} />
+            <motion.div key={`${section.title}-${game.id}`} variants={itemVariants}>
+              <GameCard game={game} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </section>
   )
