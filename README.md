@@ -119,23 +119,6 @@ src/
 | `VITE_RAWG_API_KEY` | RAWG API key | Yes |
 | `VITE_RAWG_API_URL` | RAWG API base URL | No (defaults to `https://api.rawg.io/api`) |
 
-Get your free API key at [RAWG Developer Portal](https://rawg.io/apidocs).
-
-## Screenshots
-
-_Screenshots can be added here once the project is deployed._
-
-## Lighthouse Scores
-
-_Target scores for production:_
-
-| Category | Target |
-|----------|--------|
-| Performance | 90+ |
-| Accessibility | 95+ |
-| Best Practices | 100 |
-| SEO | 100 |
-
 ## Key Optimizations
 
 - **Memoization** — GameCard and reusable components memoized for render performance
@@ -153,15 +136,3 @@ _Target scores for production:_
 - Focus visible states on all interactive elements
 - Color contrast compliant with WCAG guidelines
 - Screen reader friendly (sr-only labels, proper roles)
-
-## Future Improvements
-
-- [ ] User authentication with Supabase
-- [ ] Cloud sync for library data
-- [ ] Game reviews and ratings
-- [ ] Social features (friends, activity feed)
-- [ ] Push notifications for release dates
-- [ ] PWA with offline support
-- [ ] Dark/light theme toggle
-- [ ] Internationalization (i18n)
-- [ ] Game collections and custom lists
