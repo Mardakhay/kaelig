@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 export interface GameFilterValues {
   genre?: string
   platform?: string
@@ -39,12 +41,6 @@ const platformOptions: FilterOption[] = [
   { label: 'Mobile', value: '4,8' },
 ]
 
-const currentYear = new Date().getFullYear()
-const yearOptions: FilterOption[] = Array.from({ length: 10 }, (_, index) => {
-  const year = String(currentYear - index)
-  return { label: year, value: year }
-})
-
 const metacriticOptions: FilterOption[] = [
   { label: '90+', value: '90,100' },
   { label: '80+', value: '80,100' },
@@ -70,6 +66,14 @@ const orderingOptions: FilterOption[] = [
 
 export function GameFilters({ values, onChange, onClear, className }: GameFiltersProps) {
   const hasActiveFilters = Object.values(values).some(Boolean)
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    return Array.from({ length: 10 }, (_, index) => {
+      const year = String(currentYear - index)
+      return { label: year, value: year }
+    })
+  }, [])
 
   function updateFilter(key: keyof GameFilterValues, value: string) {
     onChange({

@@ -15,6 +15,11 @@ function applyTheme(theme: 'dark' | 'light') {
   const root = document.documentElement
   root.classList.remove('light', 'dark')
   root.classList.add(theme)
+
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+  if (metaThemeColor) {
+    metaThemeColor.setAttribute('content', theme === 'light' ? '#f8fafc' : '#0f1115')
+  }
 }
 
 export interface ThemeContextValue {

@@ -23,8 +23,17 @@
     <script>
       (function() {
         var stored = localStorage.getItem('kaelig-theme');
-        var theme = stored === 'light' ? 'light' : 'dark';
+        var theme;
+        if (stored === 'dark' || stored === 'light') {
+          theme = stored;
+        } else {
+          theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
         document.documentElement.classList.add(theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+          meta.setAttribute('content', theme === 'light' ? '#f8fafc' : '#0f1115');
+        }
       })();
     </script>
   </head>
