@@ -42,7 +42,14 @@ export function Dialog({
   className,
 }: DialogProps) {
   return (
-    <Modal open={open} onClose={onClose} size={size} className={cn('', className)}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      size={size}
+      title={title}
+      description={description}
+      className={cn('', className)}
+    >
       <ModalHeader>
         <div className="flex flex-col gap-1">
           <ModalTitle>{title}</ModalTitle>

@@ -5,6 +5,8 @@ import {
   forwardRef,
   useEffect,
   useCallback,
+  useRef,
+  useId,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
@@ -168,23 +170,70 @@ export interface ModalProps {
   size?: ModalContentProps['size']
   children: ReactNode
   className?: string
+  title?: string
+  description?: string
 }
 
-export function Modal({ open, onClose, size, children, className }: ModalProps) {
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const elements = container.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )
+  return Array.from(elements).filter(el => el.offsetParent !== null)
+}
+
+export function Modal({ open, onClose, size, children, className, title, description }: ModalProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+        return
+      }
+
+      if (e.key === 'Tab' && containerRef.current) {
+        const focusable = getFocusableElements(containerRef.current)
+        if (focusable.length === 0) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
     },
     [onClose]
   )
 
   useEffect(() => {
     if (!open) return
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null
+
     document.addEventListener('keydown', handleKeyDown)
     document.body.style.overflow = 'hidden'
+
+    const timer = setTimeout(() => {
+      const focusable = containerRef.current ? getFocusableElements(containerRef.current) : []
+      if (focusable.length > 0) {
+        focusable[0].focus()
+      }
+    }, 50)
+
     return () => {
+      clearTimeout(timer)
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = ''
+      previousFocusRef.current?.focus()
     }
   }, [open, handleKeyDown])
 
@@ -199,14 +248,18 @@ export function Modal({ open, onClose, size, children, className }: ModalProps) 
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
             onClick={onClose}
+            aria-hidden="true"
           />
           <motion.div
+            ref={containerRef}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-describedby={description ? descriptionId : undefined}
             className={cn(
               'fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2',
               'w-full rounded-xl border border-border bg-card shadow-2xl',
@@ -214,6 +267,16 @@ export function Modal({ open, onClose, size, children, className }: ModalProps) 
               className
             )}
           >
+            {title && (
+              <h2 id={titleId} className="sr-only">
+                {title}
+              </h2>
+            )}
+            {description && (
+              <p id={descriptionId} className="sr-only">
+                {description}
+              </p>
+            )}
             {children}
           </motion.div>
         </>

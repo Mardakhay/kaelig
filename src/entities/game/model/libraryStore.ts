@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
@@ -116,47 +117,56 @@ export function useLibraryStats() {
   const playing = useLibraryStore(state => state.playing)
   const completed = useLibraryStore(state => state.completed)
 
-  const totalGames = favorites.length + wishlist.length + playing.length + completed.length
+  const allGames = useMemo(
+    () => [...favorites, ...wishlist, ...playing, ...completed],
+    [favorites, wishlist, playing, completed]
+  )
 
-  const allGenres = [...favorites, ...wishlist, ...playing, ...completed]
-    .flatMap(g => g.genres)
+  return useMemo(() => {
+    const totalGames = allGames.length
+    const favoritesCount = favorites.length
+    const wishlistCount = wishlist.length
+    const playingCount = playing.length
+    const completedCount = completed.length
 
-  const favoriteGenre = allGenres.length > 0
-    ? allGenres.reduce((acc, genre) => {
-        acc[genre] = (acc[genre] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
-    : {}
+    const genreCounts: Record<string, number> = {}
+    const platformCounts: Record<string, number> = {}
+    let ratingSum = 0
 
-  const topGenre = Object.entries(favoriteGenre)
-    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+    for (const game of allGames) {
+      ratingSum += game.rating
+      for (const genre of game.genres) {
+        genreCounts[genre] = (genreCounts[genre] || 0) + 1
+      }
+      for (const platform of game.platforms) {
+        platformCounts[platform] = (platformCounts[platform] || 0) + 1
+      }
+    }
 
-  const allPlatforms = [...favorites, ...wishlist, ...playing, ...completed]
-    .flatMap(g => g.platforms)
+    const genreEntries = Object.entries(genreCounts)
+    const platformEntries = Object.entries(platformCounts)
 
-  const platformCounts = allPlatforms.reduce((acc, platform) => {
-    acc[platform] = (acc[platform] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+    const topGenre = genreEntries.length > 0
+      ? genreEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+      : null
 
-  const favoritePlatform = Object.entries(platformCounts)
-    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+    const favoritePlatform = platformEntries.length > 0
+      ? platformEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0]
+      : null
 
-  const averageRating = totalGames > 0
-    ? [...favorites, ...wishlist, ...playing, ...completed]
-        .reduce((sum, g) => sum + g.rating, 0) / totalGames
-    : 0
+    const averageRating = totalGames > 0 ? ratingSum / totalGames : 0
 
-  return {
-    totalGames,
-    favoritesCount: favorites.length,
-    wishlistCount: wishlist.length,
-    playingCount: playing.length,
-    completedCount: completed.length,
-    topGenre,
-    favoritePlatform,
-    averageRating,
-    genreCounts: favoriteGenre,
-    platformCounts,
-  }
+    return {
+      totalGames,
+      favoritesCount,
+      wishlistCount,
+      playingCount,
+      completedCount,
+      topGenre,
+      favoritePlatform,
+      averageRating,
+      genreCounts,
+      platformCounts,
+    }
+  }, [allGames, favorites.length, wishlist.length, playing.length, completed.length])
 }

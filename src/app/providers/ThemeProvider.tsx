@@ -1,7 +1,25 @@
-import { createContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+
+const STORAGE_KEY = 'kaelig-theme'
+
+function getInitialTheme(): 'dark' | 'light' {
+  if (typeof window === 'undefined') return 'dark'
+
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored === 'dark' || stored === 'light') return stored
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function applyTheme(theme: 'dark' | 'light') {
+  const root = document.documentElement
+  root.classList.remove('light', 'dark')
+  root.classList.add(theme)
+}
 
 export interface ThemeContextValue {
   theme: 'dark' | 'light'
+  setTheme: (theme: 'dark' | 'light') => void
   toggleTheme: () => void
 }
 
@@ -12,14 +30,23 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [theme, setThemeState] = useState<'dark' | 'light'>(getInitialTheme)
+
+  useEffect(() => {
+    applyTheme(theme)
+    localStorage.setItem(STORAGE_KEY, theme)
+  }, [theme])
+
+  const setTheme = useCallback((newTheme: 'dark' | 'light') => {
+    setThemeState(newTheme)
+  }, [])
 
   const toggleTheme = useCallback(() => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
+    setThemeState(prev => (prev === 'dark' ? 'light' : 'dark'))
   }, [])
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   )

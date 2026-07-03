@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Kaelig - A modern game discovery platform. Browse trending, popular, upcoming, and newly released games. Track your favorites, wishlist, and gaming progress." />
     <meta name="theme-color" content="#0f1115" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
 
     <meta property="og:title" content="Kaelig - Game Discovery Platform" />
     <meta property="og:description" content="Discover your next favorite game. Browse trending, popular, and upcoming titles." />
@@ -20,6 +20,13 @@
     <link rel="preconnect" href="https://images.igdb.com" crossorigin />
 
     <title>Kaelig - Game Discovery Platform</title>
+    <script>
+      (function() {
+        var stored = localStorage.getItem('kaelig-theme');
+        var theme = stored === 'light' ? 'light' : 'dark';
+        document.documentElement.classList.add(theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

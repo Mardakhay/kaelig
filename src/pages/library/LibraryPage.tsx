@@ -1,7 +1,7 @@
-import { Heart, ListPlus, Play, CheckCircle2, Trash2, Gamepad2 } from 'lucide-react'
+import { Heart, ListPlus, Play, CircleCheck as CheckCircle2, Trash2, Gamepad2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
-import { useLibraryStore, useLibraryStats, type LibraryStatus, type LibraryGame } from '@entities/game/model/libraryStore'
+import { useLibraryStore, useLibraryStats, type LibraryStatus, type LibraryGame } from '@entities/game'
 import { EmptyState } from '@shared/ui/empty-state'
 import { cn } from '@shared/lib/cn'
 

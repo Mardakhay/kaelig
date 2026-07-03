@@ -1,5 +1,3 @@
-export { gameQueryKeys } from './api/queryKeys'
-export { gameService } from './api/gameService'
 export {
   useGameDetailsQuery,
   useGameMoviesQuery,
@@ -19,19 +17,4 @@ export type {
   LibraryStatus,
   LibraryGame,
 } from './model/libraryStore'
-export type {
-  GameListParams,
-  RawgDeveloper,
-  RawgGame,
-  RawgGameDetails,
-  RawgGameMovie,
-  RawgGamePlatform,
-  RawgGameScreenshot,
-  RawgGenre,
-  RawgPaginatedResponse,
-  RawgPlatform,
-  RawgPlatformParent,
-  RawgPublisher,
-  RawgShortScreenshot,
-  RawgStore,
-} from './model/types'
+export type { GameListParams } from './model/types'

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Clock, Flame, RefreshCcw, Sparkles, Trophy } from 'lucide-react'
 import {
@@ -27,11 +28,14 @@ function createDateRange(startDate: Date, endDate: Date) {
   return `${formatDate(startDate)},${formatDate(endDate)}`
 }
 
-const today = new Date()
-const upcomingEndDate = new Date(today)
-upcomingEndDate.setFullYear(today.getFullYear() + 1)
-const newReleaseStartDate = new Date(today)
-newReleaseStartDate.setDate(today.getDate() - 90)
+function getDateRanges() {
+  const today = new Date()
+  const upcomingEndDate = new Date(today)
+  upcomingEndDate.setFullYear(today.getFullYear() + 1)
+  const newReleaseStartDate = new Date(today)
+  newReleaseStartDate.setDate(today.getDate() - 90)
+  return { today, upcomingEndDate, newReleaseStartDate }
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,6 +58,8 @@ const sectionVariants = {
 }
 
 export function HomePage() {
+  const { today, upcomingEndDate, newReleaseStartDate } = useMemo(() => getDateRanges(), [])
+
   const trendingQuery = useGamesQuery({
     page_size: pageSize,
     ordering: '-added',
