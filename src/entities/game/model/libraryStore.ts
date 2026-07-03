@@ -23,7 +23,6 @@ interface LibraryState {
   addGame: (status: LibraryStatus, game: LibraryGame) => void
   removeGame: (status: LibraryStatus, gameId: number) => void
   moveGame: (from: LibraryStatus, to: LibraryStatus, gameId: number) => void
-  isGameInLibrary: (gameId: number) => LibraryStatus | null
   getGameStatus: (gameId: number) => LibraryStatus | null
   clearLibrary: () => void
 }
@@ -77,15 +76,6 @@ export const useLibraryStore = create<LibraryState>()(
             [to]: [...state[to], { ...game, addedAt: new Date().toISOString() }],
           }
         }),
-
-      isGameInLibrary: gameId => {
-        const state = get()
-        if (state.favorites.some(g => g.id === gameId)) return 'favorites'
-        if (state.wishlist.some(g => g.id === gameId)) return 'wishlist'
-        if (state.playing.some(g => g.id === gameId)) return 'playing'
-        if (state.completed.some(g => g.id === gameId)) return 'completed'
-        return null
-      },
 
       getGameStatus: gameId => {
         const state = get()

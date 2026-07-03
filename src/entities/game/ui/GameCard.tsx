@@ -2,7 +2,7 @@ import { memo, useCallback } from 'react'
 import { Calendar, Gamepad2, Heart, Star, Tag } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@shared/lib/cn'
-import { useLibraryStore, type LibraryGame } from '../model/libraryStore'
+import { useLibraryStore, type LibraryGame } from '@entities/game'
 
 export interface GameCardGame {
   id: number

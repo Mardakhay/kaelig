@@ -1,6 +1,7 @@
 import { Heart, ListPlus, Play, CircleCheck as CheckCircle2, Trash2, Gamepad2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useLibraryStore, useLibraryStats, type LibraryStatus, type LibraryGame } from '@entities/game'
 import { EmptyState } from '@shared/ui/empty-state'
 import { cn } from '@shared/lib/cn'
@@ -181,11 +182,20 @@ function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryS
   }
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10">
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+    <article className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm transition duration-300 ease-out hover:-translate-y-1 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10">
+      <Link
+        to="/game/$id"
+        params={{ id: String(game.id) }}
+        className="absolute inset-0 z-0"
+        aria-label={`View details for ${game.title}`}
+      >
+        <span className="sr-only">{game.title}</span>
+      </Link>
+
+      <div className="relative z-10 aspect-[4/3] overflow-hidden bg-muted">
         <img
           src={game.image}
-          alt={game.title}
+          alt=""
           className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"
           loading="lazy"
         />
@@ -199,13 +209,13 @@ function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryS
           type="button"
           aria-label={`Remove ${game.title} from ${status}`}
           onClick={handleRemove}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition duration-200 hover:scale-105 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition duration-200 hover:scale-105 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 p-4">
+      <div className="relative z-10 flex flex-1 flex-col gap-3 p-4">
         <div className="min-w-0 space-y-1">
           <h3 className="line-clamp-2 text-base font-semibold leading-snug text-foreground">
             {game.title}
@@ -268,12 +278,12 @@ function EmptyLibraryState({ status }: { status: LibraryStatus }) {
       title={`No ${label} yet`}
       description={description}
       action={
-        <a
-          href="/search"
+        <Link
+          to="/search"
           className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           Browse games
-        </a>
+        </Link>
       }
       className="min-h-[280px]"
     />
