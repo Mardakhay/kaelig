@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Clock, Flame, RefreshCcw, Sparkles, Trophy } from 'lucide-react'
+import { ArrowRight, Clock, Flame, RefreshCcw, Sparkles, Trophy, CircleAlert as AlertCircle } from 'lucide-react'
 import {
   GameCard,
   GameCardSkeleton,
@@ -314,11 +314,19 @@ function HeroSkeleton() {
 function HeroError({ error }: { error: Error }) {
   return (
     <div className="flex h-full min-h-80 flex-col items-center justify-center gap-3 p-6 text-center lg:min-h-[30rem]">
-      <RefreshCcw className="h-8 w-8 text-error" />
+      <AlertCircle className="h-8 w-8 text-error" />
       <div className="space-y-1">
         <h2 className="text-lg font-semibold text-foreground">Unable to load featured games</h2>
         <p className="max-w-sm text-sm text-muted-foreground">{error.message}</p>
       </div>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="mt-2 inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted"
+      >
+        <RefreshCcw className="h-4 w-4" />
+        Refresh
+      </button>
     </div>
   )
 }
@@ -336,7 +344,15 @@ function GameShelfSkeleton() {
 function GameShelfError({ error }: { error: Error }) {
   return (
     <div className="rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error">
-      {error.message}
+      <p>{error.message}</p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="mt-2 inline-flex items-center gap-1 text-xs font-medium underline hover:no-underline"
+      >
+        <RefreshCcw className="h-3 w-3" />
+        Refresh page
+      </button>
     </div>
   )
 }
