@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Gamepad2, Github, Twitter } from 'lucide-react'
+import { Gamepad2, Github } from 'lucide-react'
 
 const year = new Date().getFullYear()
 
@@ -37,22 +37,13 @@ export function Footer() {
           {/* Social + copyright */}
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com"
+              href="https://github.com/Mardakhay/kaelig"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
               <Github className="h-4 w-4" />
-            </a>
-            <a
-              href="https://twitter.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Twitter / X"
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Twitter className="h-4 w-4" />
             </a>
             <span className="text-xs text-muted-foreground">&copy; {year} Kaelig</span>
           </div>
