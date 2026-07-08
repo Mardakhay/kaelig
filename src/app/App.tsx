@@ -1,5 +1,6 @@
 import { ThemeProvider } from '@app/providers'
 import { QueryProvider } from '@app/providers'
+import { AuthProvider } from '@app/providers'
 import { RouterProvider } from '@app/providers'
 import { ErrorBoundary } from '@shared/ui/error-boundary'
 
@@ -8,7 +9,9 @@ export function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <QueryProvider>
-          <RouterProvider />
+          <AuthProvider>
+            <RouterProvider />
+          </AuthProvider>
         </QueryProvider>
       </ThemeProvider>
     </ErrorBoundary>

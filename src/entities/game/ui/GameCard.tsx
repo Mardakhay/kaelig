@@ -1,7 +1,8 @@
 import { memo, useCallback } from 'react'
 import { Calendar, Gamepad2, Heart, Star, Tag } from 'lucide-react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { cn } from '@shared/lib/cn'
+import { useAuth } from '@shared/hooks'
 import { useLibraryStore, type LibraryGame } from '@entities/game'
 
 export interface GameCardGame {
@@ -20,13 +21,20 @@ interface GameCardProps {
 }
 
 const GameCardInner = ({ game, className }: GameCardProps) => {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const getGameStatus = useLibraryStore(state => state.getGameStatus)
   const addGame = useLibraryStore(state => state.addGame)
   const removeGame = useLibraryStore(state => state.removeGame)
 
-  const isFavorite = getGameStatus(game.id) === 'favorites'
+  const isFavorite = isAuthenticated && getGameStatus(game.id) === 'favorites'
 
   const handleFavoriteToggle = useCallback(() => {
+    if (!isAuthenticated) {
+      void navigate({ to: '/auth' })
+      return
+    }
+
     const currentStatus = getGameStatus(game.id)
     if (currentStatus === 'favorites') {
       removeGame('favorites', game.id)
@@ -45,7 +53,7 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
         addedAt: new Date().toISOString(),
       })
     }
-  }, [game, getGameStatus, addGame, removeGame])
+  }, [game, isAuthenticated, navigate, getGameStatus, addGame, removeGame])
 
   const platforms = game.platforms.slice(0, 4)
   const genres = game.genres.slice(0, 3)

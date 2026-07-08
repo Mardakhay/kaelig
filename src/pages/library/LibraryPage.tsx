@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useLibraryStore, useLibraryStats, type LibraryStatus, type LibraryGame } from '@entities/game'
 import { EmptyState } from '@shared/ui/empty-state'
+import { Loader } from '@shared/ui/loader'
 import { cn } from '@shared/lib/cn'
 
 const tabs: { id: LibraryStatus; label: string; icon: typeof Heart }[] = [
@@ -19,6 +20,8 @@ export function LibraryPage() {
   const wishlist = useLibraryStore(state => state.wishlist)
   const playing = useLibraryStore(state => state.playing)
   const completed = useLibraryStore(state => state.completed)
+  const isLoading = useLibraryStore(state => state.isLoading)
+  const isHydrated = useLibraryStore(state => state.isHydrated)
   const stats = useLibraryStats()
 
   const currentGames = {
@@ -27,6 +30,14 @@ export function LibraryPage() {
     playing,
     completed,
   }[activeTab]
+
+  if (isLoading || !isHydrated) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader size="lg" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 px-4 py-6 sm:px-6 lg:px-8">

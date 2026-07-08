@@ -1,8 +1,10 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { supabase } from '@shared/api/supabaseClient'
 
 export type LibraryStatus = 'favorites' | 'wishlist' | 'playing' | 'completed'
+
+const STATUSES: LibraryStatus[] = ['favorites', 'wishlist', 'playing', 'completed']
 
 export interface LibraryGame {
   id: number
@@ -15,7 +17,22 @@ export interface LibraryGame {
   addedAt: string
 }
 
+interface LibraryRow {
+  game_id: number
+  status: LibraryStatus
+  title: string
+  image: string | null
+  rating: number | null
+  release_year: number | null
+  platforms: string[]
+  genres: string[]
+  added_at: string
+}
+
 interface LibraryState {
+  userId: string | null
+  isHydrated: boolean
+  isLoading: boolean
   favorites: LibraryGame[]
   wishlist: LibraryGame[]
   playing: LibraryGame[]
@@ -25,81 +42,193 @@ interface LibraryState {
   moveGame: (from: LibraryStatus, to: LibraryStatus, gameId: number) => void
   getGameStatus: (gameId: number) => LibraryStatus | null
   clearLibrary: () => void
+  hydrate: (userId: string) => Promise<void>
+  reset: () => void
+}
+
+const initialLists = {
+  favorites: [] as LibraryGame[],
+  wishlist: [] as LibraryGame[],
+  playing: [] as LibraryGame[],
+  completed: [] as LibraryGame[],
 }
 
 const initialState = {
-  favorites: [],
-  wishlist: [],
-  playing: [],
-  completed: [],
+  userId: null,
+  isHydrated: false,
+  isLoading: false,
+  ...initialLists,
 }
 
-export const useLibraryStore = create<LibraryState>()(
-  persist(
-    (set, get) => ({
-      ...initialState,
+function rowToGame(row: LibraryRow): LibraryGame {
+  return {
+    id: row.game_id,
+    title: row.title,
+    image: row.image ?? '',
+    rating: row.rating ?? 0,
+    releaseYear: row.release_year ?? 0,
+    platforms: row.platforms ?? [],
+    genres: row.genres ?? [],
+    addedAt: row.added_at,
+  }
+}
 
-      addGame: (status, game) =>
-        set(state => {
-          const existingGame = state[status].find(g => g.id === game.id)
-          if (existingGame) return state
+function groupByStatus(rows: LibraryRow[]) {
+  const grouped = {
+    favorites: [] as LibraryGame[],
+    wishlist: [] as LibraryGame[],
+    playing: [] as LibraryGame[],
+    completed: [] as LibraryGame[],
+  }
+  for (const row of rows) {
+    grouped[row.status].push(rowToGame(row))
+  }
+  return grouped
+}
 
-          const gameWithTimestamp: LibraryGame = {
-            ...game,
-            addedAt: game.addedAt || new Date().toISOString(),
-          }
+export const useLibraryStore = create<LibraryState>()((set, get) => ({
+  ...initialState,
 
-          return {
-            [status]: [...state[status], gameWithTimestamp],
-          }
-        }),
+  hydrate: async userId => {
+    set({ isLoading: true })
 
-      removeGame: (status, gameId) =>
-        set(state => ({
-          [status]: state[status].filter(g => g.id !== gameId),
-        })),
+    const { data, error } = await supabase
+      .from('library_games')
+      .select('game_id, status, title, image, rating, release_year, platforms, genres, added_at')
+      .eq('user_id', userId)
+      .order('added_at', { ascending: false })
 
-      moveGame: (from, to, gameId) =>
-        set(state => {
-          const game = state[from].find(g => g.id === gameId)
-          if (!game) return state
-
-          const existingInTarget = state[to].find(g => g.id === gameId)
-          if (existingInTarget) {
-            return {
-              [from]: state[from].filter(g => g.id !== gameId),
-            }
-          }
-
-          return {
-            [from]: state[from].filter(g => g.id !== gameId),
-            [to]: [...state[to], { ...game, addedAt: new Date().toISOString() }],
-          }
-        }),
-
-      getGameStatus: gameId => {
-        const state = get()
-        if (state.favorites.some(g => g.id === gameId)) return 'favorites'
-        if (state.wishlist.some(g => g.id === gameId)) return 'wishlist'
-        if (state.playing.some(g => g.id === gameId)) return 'playing'
-        if (state.completed.some(g => g.id === gameId)) return 'completed'
-        return null
-      },
-
-      clearLibrary: () => set(initialState),
-    }),
-    {
-      name: 'kaelig-library',
-      storage: createJSONStorage(() => localStorage),
-      partialize: state => ({
-        favorites: state.favorites,
-        wishlist: state.wishlist,
-        playing: state.playing,
-        completed: state.completed,
-      }),
+    if (error) {
+      console.error('Failed to load library:', error.message)
+      set({ isLoading: false, isHydrated: true, userId })
+      return
     }
-  )
-)
+
+    const grouped = groupByStatus((data ?? []) as LibraryRow[])
+    set({ ...grouped, userId, isHydrated: true, isLoading: false })
+  },
+
+  reset: () => set({ ...initialState }),
+
+  addGame: (status, game) => {
+    const userId = get().userId
+    if (!userId) return
+
+    const alreadyThere = get()[status].some(g => g.id === game.id)
+    if (alreadyThere) return
+
+    const gameWithTimestamp: LibraryGame = {
+      ...game,
+      addedAt: game.addedAt || new Date().toISOString(),
+    }
+
+    set(state => {
+      const next: Partial<LibraryState> = {
+        [status]: [gameWithTimestamp, ...state[status]],
+      }
+      for (const s of STATUSES) {
+        if (s !== status && state[s].some(g => g.id === game.id)) {
+          next[s] = state[s].filter(g => g.id !== game.id)
+        }
+      }
+      return next
+    })
+
+    void supabase
+      .from('library_games')
+      .upsert(
+        {
+          user_id: userId,
+          game_id: game.id,
+          status,
+          title: game.title,
+          image: game.image,
+          rating: game.rating,
+          release_year: game.releaseYear,
+          platforms: game.platforms,
+          genres: game.genres,
+          added_at: gameWithTimestamp.addedAt,
+        },
+        { onConflict: 'user_id,game_id' }
+      )
+      .then(({ error }) => {
+        if (error) console.error('Failed to save game to library:', error.message)
+      })
+  },
+
+  removeGame: (status, gameId) => {
+    const userId = get().userId
+    if (!userId) return
+
+    set(state => ({
+      [status]: state[status].filter(g => g.id !== gameId),
+    }))
+
+    void supabase
+      .from('library_games')
+      .delete()
+      .eq('user_id', userId)
+      .eq('game_id', gameId)
+      .then(({ error }) => {
+        if (error) console.error('Failed to remove game from library:', error.message)
+      })
+  },
+
+  moveGame: (from, to, gameId) => {
+    const userId = get().userId
+    if (!userId) return
+
+    const game = get()[from].find(g => g.id === gameId)
+    if (!game) return
+
+    const existingInTarget = get()[to].some(g => g.id === gameId)
+    const movedAt = new Date().toISOString()
+
+    set(state => {
+      if (existingInTarget) {
+        return { [from]: state[from].filter(g => g.id !== gameId) }
+      }
+      return {
+        [from]: state[from].filter(g => g.id !== gameId),
+        [to]: [{ ...game, addedAt: movedAt }, ...state[to]],
+      }
+    })
+
+    if (existingInTarget) return
+
+    void supabase
+      .from('library_games')
+      .update({ status: to, added_at: movedAt })
+      .eq('user_id', userId)
+      .eq('game_id', gameId)
+      .then(({ error }) => {
+        if (error) console.error('Failed to move game:', error.message)
+      })
+  },
+
+  getGameStatus: gameId => {
+    const state = get()
+    if (state.favorites.some(g => g.id === gameId)) return 'favorites'
+    if (state.wishlist.some(g => g.id === gameId)) return 'wishlist'
+    if (state.playing.some(g => g.id === gameId)) return 'playing'
+    if (state.completed.some(g => g.id === gameId)) return 'completed'
+    return null
+  },
+
+  clearLibrary: () => {
+    const userId = get().userId
+    set({ ...initialLists })
+    if (!userId) return
+
+    void supabase
+      .from('library_games')
+      .delete()
+      .eq('user_id', userId)
+      .then(({ error }) => {
+        if (error) console.error('Failed to clear library:', error.message)
+      })
+  },
+}))
 
 export function useLibraryStats() {
   const favorites = useLibraryStore(state => state.favorites)

@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
   Calendar,
   Gamepad2,
+  LogOut,
   MonitorSmartphone,
   PieChart,
   Play,
@@ -12,7 +14,11 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { useLibraryStore, useLibraryStats } from '@entities/game'
+import { useAuth } from '@shared/hooks'
+import { Avatar, AvatarFallback } from '@shared/ui/avatar'
+import { Button } from '@shared/ui/button'
 import { EmptyState } from '@shared/ui/empty-state'
+import { Loader } from '@shared/ui/loader'
 import { cn } from '@shared/lib/cn'
 
 const motionProps = {
@@ -21,14 +27,66 @@ const motionProps = {
   transition: { duration: 0.4, ease: 'easeOut' as const },
 }
 
+function AccountHeader() {
+  const { user, profile, signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+
+  const displayName = profile?.username ?? user?.email?.split('@')[0] ?? 'Account'
+  const memberSince = profile?.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+    : null
+
+  async function handleSignOut() {
+    setIsSigningOut(true)
+    try {
+      await signOut()
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <Avatar className="h-12 w-12 border border-border">
+          <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
+            {displayName.slice(0, 2).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-foreground">{displayName}</p>
+          <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
+          {memberSince && (
+            <p className="mt-0.5 text-xs text-muted-foreground">Member since {memberSince}</p>
+          )}
+        </div>
+      </div>
+      <Button variant="outline" size="sm" onClick={handleSignOut} disabled={isSigningOut} className="shrink-0">
+        <LogOut className="h-4 w-4" />
+        {isSigningOut ? 'Signing out…' : 'Sign out'}
+      </Button>
+    </div>
+  )
+}
+
 export function ProfilePage() {
   const stats = useLibraryStats()
   const favorites = useLibraryStore(state => state.favorites)
   const wishlist = useLibraryStore(state => state.wishlist)
   const playing = useLibraryStore(state => state.playing)
   const completed = useLibraryStore(state => state.completed)
+  const isLoading = useLibraryStore(state => state.isLoading)
+  const isHydrated = useLibraryStore(state => state.isHydrated)
 
   const allGames = [...favorites, ...wishlist, ...playing, ...completed]
+
+  if (isLoading || !isHydrated) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader size="lg" />
+      </div>
+    )
+  }
 
   if (stats.totalGames === 0) {
     return (
@@ -40,6 +98,7 @@ export function ProfilePage() {
               View your gaming statistics and preferences.
             </p>
           </div>
+          <AccountHeader />
         </section>
 
         <EmptyState
@@ -89,6 +148,7 @@ export function ProfilePage() {
             Your gaming statistics and preferences.
           </p>
         </div>
+        <AccountHeader />
       </section>
 
       <motion.section {...motionProps} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

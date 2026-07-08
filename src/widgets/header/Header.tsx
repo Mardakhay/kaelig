@@ -1,13 +1,26 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { Menu, X, Gamepad2 } from 'lucide-react'
+import { Menu, X, Gamepad2, LogOut } from 'lucide-react'
 import { cn } from '@shared/lib/cn'
 import { Button } from '@shared/ui/button'
 import { NAV_LINKS } from '@widgets/layout/navLinks'
+import { useAuth } from '@shared/hooks'
+import { UserMenu } from './UserMenu'
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
+  const { isAuthenticated, user, profile, signOut } = useAuth()
+  const [isSigningOut, setIsSigningOut] = useState(false)
+
+  async function handleMobileSignOut() {
+    setIsSigningOut(true)
+    try {
+      await signOut()
+    } finally {
+      setIsSigningOut(false)
+    }
+  }
 
   useEffect(() => {
     setMenuOpen(false)
@@ -52,18 +65,24 @@ export function Header() {
 
         {/* Right actions — md+ */}
         <div className="hidden items-center gap-2 md:flex">
-          <Link
-            to="/auth"
-            className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Sign in
-          </Link>
-          <Link
-            to="/auth"
-            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Get started
-          </Link>
+          {isAuthenticated ? (
+            <UserMenu />
+          ) : (
+            <>
+              <Link
+                to="/auth"
+                className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/auth"
+                className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                Get started
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile hamburger — hidden on md+ */}
@@ -100,18 +119,40 @@ export function Header() {
             ))}
           </nav>
           <div className="flex flex-col gap-2 border-t border-border p-4">
-            <Link
-              to="/auth"
-              className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-            >
-              Sign in
-            </Link>
-            <Link
-              to="/auth"
-              className="flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Get started
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <div className="px-1 pb-1">
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {profile?.username ?? user?.email?.split('@')[0]}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleMobileSignOut}
+                  disabled={isSigningOut}
+                  className="flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-50"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                  {isSigningOut ? 'Signing out…' : 'Sign out'}
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/auth"
+                  className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/auth"
+                  className="flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
