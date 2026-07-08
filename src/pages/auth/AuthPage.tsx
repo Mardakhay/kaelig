@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useNavigate } from '@tanstack/react-router'
-import { Eye, EyeOff, Gamepad2, MailCheck, TriangleAlert } from 'lucide-react'
+import { Eye, EyeOff, Gamepad2, TriangleAlert } from 'lucide-react'
 import { useAuth } from '@shared/hooks'
 import { AuthApiError } from '@entities/user'
 import { Card, CardContent } from '@shared/ui/card'
@@ -242,7 +242,6 @@ function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   const [formError, setFormError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null)
 
   const {
     register,
@@ -255,35 +254,12 @@ function SignUpForm({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
   async function onSubmit(values: SignUpValues) {
     setFormError(null)
     try {
-      const { needsEmailConfirmation } = await signUp(values.email, values.password, values.username)
-      if (needsEmailConfirmation) {
-        setConfirmationEmail(values.email)
-      }
-      // If no confirmation is needed, AuthProvider's session listener picks up
-      // the new session and AuthPage redirects to /library automatically.
+      await signUp(values.email, values.password, values.username)
+      // AuthProvider's session listener picks up the new session and
+      // AuthPage redirects to /library automatically.
     } catch (err) {
       setFormError(err instanceof AuthApiError ? err.message : 'Unable to create account. Please try again.')
     }
-  }
-
-  if (confirmationEmail) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-4 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/15 text-success">
-          <MailCheck className="h-6 w-6" aria-hidden="true" />
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">Check your inbox</p>
-          <p className="text-sm text-muted-foreground">
-            We sent a confirmation link to <span className="font-medium text-foreground">{confirmationEmail}</span>.
-            Confirm your email, then sign in below.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onSwitchToSignIn} className="mt-2">
-          Back to sign in
-        </Button>
-      </div>
-    )
   }
 
   return (

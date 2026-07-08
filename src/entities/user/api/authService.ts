@@ -30,7 +30,7 @@ function mapAuthError(error: { message: string } | null): never | void {
 }
 
 export const authService = {
-  async signUp({ email, password, username }: SignUpInput): Promise<AuthSession | null> {
+  async signUp({ email, password, username }: SignUpInput): Promise<AuthSession> {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -40,6 +40,9 @@ export const authService = {
     })
 
     mapAuthError(error)
+    if (!data.session) {
+      throw new AuthApiError('Unable to create account. Please try again.')
+    }
     return data.session
   },
 

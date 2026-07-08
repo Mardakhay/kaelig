@@ -9,7 +9,7 @@ export interface AuthContextValue {
   isLoading: boolean
   isAuthenticated: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, username: string) => Promise<{ needsEmailConfirmation: boolean }>
+  signUp: (email: string, password: string, username: string) => Promise<void>
   signOut: () => Promise<void>
   error: string | null
   clearError: () => void
@@ -90,8 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signUp = useCallback(async (email: string, password: string, username: string) => {
     setError(null)
     try {
-      const session = await authService.signUp({ email, password, username })
-      return { needsEmailConfirmation: !session }
+      await authService.signUp({ email, password, username })
     } catch (err) {
       const message = err instanceof AuthApiError ? err.message : 'Unable to create account. Please try again.'
       setError(message)

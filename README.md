@@ -135,7 +135,7 @@ src/
 
 ## Authentication & Data
 
-- Sign-up and sign-in are email/password only, handled through Supabase Auth (`src/entities/user`, `src/app/providers/AuthProvider.tsx`).
+- Sign-up and sign-in are email/password only, handled through Supabase Auth (`src/entities/user`, `src/app/providers/AuthProvider.tsx`). Email confirmation is disabled — signing up immediately signs the user in.
 - `/library` and `/profile` are gated behind sign-in via `RequireAuth` (`src/widgets/auth-guard`); visiting either while signed out redirects to `/auth`.
 - Favoriting a game while signed out sends you to `/auth` instead of failing silently.
 - The library store (`src/entities/game/model/libraryStore.ts`) hydrates from Supabase on sign-in, writes through on every add/remove/move, and resets on sign-out — all access is enforced server-side by RLS policies rather than trusted to the client.
