@@ -3,7 +3,7 @@ import { Calendar, Gamepad2, Heart, Star, Tag } from 'lucide-react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { cn } from '@shared/lib/cn'
 import { useAuth } from '@shared/hooks'
-import { useLibraryStore, type LibraryGame } from '@entities/game'
+import { useLibraryStore, useGameStatus, type LibraryGame } from '@entities/game'
 
 export interface GameCardGame {
   id: number
@@ -26,8 +26,10 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
   const getGameStatus = useLibraryStore(state => state.getGameStatus)
   const addGame = useLibraryStore(state => state.addGame)
   const removeGame = useLibraryStore(state => state.removeGame)
+  const moveGame = useLibraryStore(state => state.moveGame)
+  const status = useGameStatus(game.id)
 
-  const isFavorite = isAuthenticated && getGameStatus(game.id) === 'favorites'
+  const isFavorite = isAuthenticated && status === 'favorites'
 
   const handleFavoriteToggle = useCallback(() => {
     if (!isAuthenticated) {
@@ -38,10 +40,14 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
     const currentStatus = getGameStatus(game.id)
     if (currentStatus === 'favorites') {
       removeGame('favorites', game.id)
+    } else if (currentStatus) {
+      // Game already exists in another list (e.g. wishlist) — move it in
+      // place with a single UPDATE instead of a separate DELETE + UPSERT.
+      // Firing those as two unsequenced requests raced against each other:
+      // if the DELETE landed after the UPSERT, the row vanished from
+      // Supabase entirely even though the UI still showed it as favorited.
+      moveGame(currentStatus, 'favorites', game.id)
     } else {
-      if (currentStatus) {
-        removeGame(currentStatus, game.id)
-      }
       addGame('favorites', {
         id: game.id,
         title: game.title,
@@ -53,7 +59,7 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
         addedAt: new Date().toISOString(),
       })
     }
-  }, [game, isAuthenticated, navigate, getGameStatus, addGame, removeGame])
+  }, [game, isAuthenticated, navigate, getGameStatus, addGame, removeGame, moveGame])
 
   const platforms = game.platforms.slice(0, 4)
   const genres = game.genres.slice(0, 3)

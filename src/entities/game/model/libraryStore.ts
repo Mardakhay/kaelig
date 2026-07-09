@@ -230,6 +230,23 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
   },
 }))
 
+/**
+ * Reactive alternative to `useLibraryStore(state => state.getGameStatus)`.
+ * Selecting `getGameStatus` itself doesn't work for rendering — that
+ * function's reference never changes, so components subscribing to it never
+ * re-render when favorites/wishlist/playing/completed actually change. This
+ * hook selects a derived primitive instead, which Zustand can properly diff.
+ */
+export function useGameStatus(gameId: number): LibraryStatus | null {
+  return useLibraryStore(state => {
+    if (state.favorites.some(g => g.id === gameId)) return 'favorites'
+    if (state.wishlist.some(g => g.id === gameId)) return 'wishlist'
+    if (state.playing.some(g => g.id === gameId)) return 'playing'
+    if (state.completed.some(g => g.id === gameId)) return 'completed'
+    return null
+  })
+}
+
 export function useLibraryStats() {
   const favorites = useLibraryStore(state => state.favorites)
   const wishlist = useLibraryStore(state => state.wishlist)

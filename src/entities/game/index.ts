@@ -12,6 +12,7 @@ export type { GameCardGame } from './ui/GameCard'
 export {
   useLibraryStore,
   useLibraryStats,
+  useGameStatus,
 } from './model/libraryStore'
 export type {
   LibraryStatus,

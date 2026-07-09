@@ -32,6 +32,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   useEffect(() => {
     let active = true
+    // Tracks which user we've already hydrated for, so events that fire with
+    // the same session (TOKEN_REFRESHED on tab focus / periodic refresh,
+    // USER_UPDATED, the INITIAL_SESSION event onAuthStateChange emits on
+    // subscribe, etc.) don't re-trigger a full library refetch mid-session.
+    let hydratedForUserId: string | null = null
 
     async function loadProfile(userId: string) {
       try {
@@ -42,15 +47,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
 
+    function handleSession(session: { user: AuthUser } | null) {
+      setUser(session?.user ?? null)
+
+      if (session?.user) {
+        if (hydratedForUserId !== session.user.id) {
+          hydratedForUserId = session.user.id
+          void loadProfile(session.user.id)
+          void hydrateLibrary(session.user.id)
+        }
+      } else {
+        hydratedForUserId = null
+        setProfile(null)
+        resetLibrary()
+      }
+    }
+
     async function init() {
       const session = await authService.getSession()
       if (!active) return
 
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        void loadProfile(session.user.id)
-        void hydrateLibrary(session.user.id)
-      }
+      handleSession(session)
       setIsLoading(false)
     }
 
@@ -58,16 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return
-
-      setUser(session?.user ?? null)
-
-      if (session?.user) {
-        void loadProfile(session.user.id)
-        void hydrateLibrary(session.user.id)
-      } else {
-        setProfile(null)
-        resetLibrary()
-      }
+      handleSession(session)
     })
 
     return () => {
