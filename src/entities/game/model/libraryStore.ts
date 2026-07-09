@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
 import { supabase } from '@shared/api/supabaseClient'
+import { pushToast } from '@shared/ui/toast'
 
 export type LibraryStatus = 'favorites' | 'wishlist' | 'playing' | 'completed'
 
@@ -29,10 +30,26 @@ interface LibraryRow {
   added_at: string
 }
 
+/**
+ * Minimal shape of a Supabase Realtime postgres_changes payload for this
+ * table. Defined locally (instead of importing from @supabase/realtime-js)
+ * to avoid coupling to a transitive package @supabase/supabase-js doesn't
+ * publicly re-export.
+ */
+interface RealtimeChangePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE'
+  new: Partial<LibraryRow>
+  old: Partial<LibraryRow>
+}
+
+type RealtimeChannelLike = ReturnType<typeof supabase.channel>
+
 interface LibraryState {
   userId: string | null
   isHydrated: boolean
   isLoading: boolean
+  /** game IDs with a write currently in flight, for disabling UI controls */
+  pendingIds: Record<number, boolean>
   favorites: LibraryGame[]
   wishlist: LibraryGame[]
   playing: LibraryGame[]
@@ -57,19 +74,20 @@ const initialState = {
   userId: null,
   isHydrated: false,
   isLoading: false,
+  pendingIds: {} as Record<number, boolean>,
   ...initialLists,
 }
 
-function rowToGame(row: LibraryRow): LibraryGame {
+function rowToGame(row: Partial<LibraryRow> & Pick<LibraryRow, 'game_id'>): LibraryGame {
   return {
     id: row.game_id,
-    title: row.title,
+    title: row.title ?? '',
     image: row.image ?? '',
     rating: row.rating ?? 0,
     releaseYear: row.release_year ?? 0,
     platforms: row.platforms ?? [],
     genres: row.genres ?? [],
-    addedAt: row.added_at,
+    addedAt: row.added_at ?? new Date().toISOString(),
   }
 }
 
@@ -86,10 +104,96 @@ function groupByStatus(rows: LibraryRow[]) {
   return grouped
 }
 
+// Guards a hydrate() call that's still in flight against overwriting fresher
+// state — e.g. the user signs out and back in as a different account before
+// the first request resolves. Bumped by every hydrate() and reset() call so
+// a stale response can recognize it's no longer the latest one.
+let hydrateRequestId = 0
+
+let realtimeChannel: RealtimeChannelLike | null = null
+
+function unsubscribeRealtime() {
+  if (realtimeChannel) {
+    void supabase.removeChannel(realtimeChannel)
+    realtimeChannel = null
+  }
+}
+
+function applyRealtimeChange(userId: string, payload: RealtimeChangePayload) {
+  // Ignore events that arrive for a user we've since signed out of / switched
+  // away from (there's a brief window between unsubscribing and the socket
+  // actually closing).
+  if (useLibraryStore.getState().userId !== userId) return
+
+  if (payload.eventType === 'DELETE') {
+    const gameId = payload.old.game_id
+    if (gameId == null) return
+
+    useLibraryStore.setState(state => {
+      const next: Partial<LibraryState> = {}
+      for (const s of STATUSES) {
+        if (state[s].some(g => g.id === gameId)) {
+          next[s] = state[s].filter(g => g.id !== gameId)
+        }
+      }
+      return next
+    })
+    return
+  }
+
+  const row = payload.new
+  if (row.game_id == null || !row.status) return
+
+  const status = row.status
+  const game = rowToGame(row as Partial<LibraryRow> & Pick<LibraryRow, 'game_id'>)
+
+  useLibraryStore.setState(state => {
+    const next: Partial<LibraryState> = {
+      [status]: [game, ...state[status].filter(g => g.id !== game.id)],
+    }
+    for (const s of STATUSES) {
+      if (s !== status && state[s].some(g => g.id === game.id)) {
+        next[s] = state[s].filter(g => g.id !== game.id)
+      }
+    }
+    return next
+  })
+}
+
+function subscribeRealtime(userId: string) {
+  unsubscribeRealtime()
+
+  // Keeps other open tabs/devices for the same account in sync — e.g.
+  // favoriting a game on your phone updates it live on an open laptop tab.
+  // Requires Realtime to be enabled for the `library_games` table in the
+  // Supabase dashboard (Database → Replication).
+  realtimeChannel = supabase
+    .channel(`library_games:${userId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'library_games', filter: `user_id=eq.${userId}` },
+      (payload: RealtimeChangePayload) => applyRealtimeChange(userId, payload)
+    )
+    .subscribe()
+}
+
+function setPending(gameId: number, isPending: boolean) {
+  useLibraryStore.setState(state => {
+    if (isPending) {
+      return { pendingIds: { ...state.pendingIds, [gameId]: true } }
+    }
+    if (!(gameId in state.pendingIds)) return state
+    const rest = { ...state.pendingIds }
+    delete rest[gameId]
+    return { pendingIds: rest }
+  })
+}
+
 export const useLibraryStore = create<LibraryState>()((set, get) => ({
   ...initialState,
 
   hydrate: async userId => {
+    const requestId = ++hydrateRequestId
     set({ isLoading: true })
 
     const { data, error } = await supabase
@@ -98,17 +202,32 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
       .eq('user_id', userId)
       .order('added_at', { ascending: false })
 
+    // A newer hydrate() (or a reset()) started after this one fired — drop
+    // this now-stale response instead of overwriting fresher state.
+    if (requestId !== hydrateRequestId) return
+
     if (error) {
       console.error('Failed to load library:', error.message)
       set({ isLoading: false, isHydrated: true, userId })
+      pushToast({
+        variant: 'error',
+        title: 'Could not load your library',
+        description: 'Check your connection and refresh the page to try again.',
+      })
       return
     }
 
     const grouped = groupByStatus((data ?? []) as LibraryRow[])
     set({ ...grouped, userId, isHydrated: true, isLoading: false })
+
+    subscribeRealtime(userId)
   },
 
-  reset: () => set({ ...initialState }),
+  reset: () => {
+    hydrateRequestId++ // invalidate any hydrate() still in flight
+    unsubscribeRealtime()
+    set({ ...initialState })
+  },
 
   addGame: (status, game) => {
     const userId = get().userId
@@ -122,6 +241,13 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
       addedAt: game.addedAt || new Date().toISOString(),
     }
 
+    const snapshot: Partial<LibraryState> = {
+      favorites: get().favorites,
+      wishlist: get().wishlist,
+      playing: get().playing,
+      completed: get().completed,
+    }
+
     set(state => {
       const next: Partial<LibraryState> = {
         [status]: [gameWithTimestamp, ...state[status]],
@@ -133,6 +259,8 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
       }
       return next
     })
+
+    setPending(game.id, true)
 
     void supabase
       .from('library_games')
@@ -152,7 +280,18 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
         { onConflict: 'user_id,game_id' }
       )
       .then(({ error }) => {
-        if (error) console.error('Failed to save game to library:', error.message)
+        setPending(game.id, false)
+        if (error) {
+          console.error('Failed to save game to library:', error.message)
+          // Only roll back if we're still looking at the same user's data —
+          // don't stomp on a library that's since been hydrated for someone else.
+          if (get().userId === userId) set(snapshot)
+          pushToast({
+            variant: 'error',
+            title: 'Could not save to library',
+            description: `${game.title} wasn't added — check your connection and try again.`,
+          })
+        }
       })
   },
 
@@ -160,9 +299,13 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
     const userId = get().userId
     if (!userId) return
 
+    const removedGame = get()[status].find(g => g.id === gameId)
+
     set(state => ({
       [status]: state[status].filter(g => g.id !== gameId),
     }))
+
+    setPending(gameId, true)
 
     void supabase
       .from('library_games')
@@ -170,7 +313,24 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
       .eq('user_id', userId)
       .eq('game_id', gameId)
       .then(({ error }) => {
-        if (error) console.error('Failed to remove game from library:', error.message)
+        setPending(gameId, false)
+        if (error) {
+          console.error('Failed to remove game from library:', error.message)
+          if (get().userId === userId && removedGame) {
+            set(state =>
+              state[status].some(g => g.id === gameId)
+                ? state
+                : { [status]: [removedGame, ...state[status]] }
+            )
+          }
+          pushToast({
+            variant: 'error',
+            title: 'Could not remove from library',
+            description: removedGame
+              ? `${removedGame.title} wasn't removed — check your connection and try again.`
+              : 'Check your connection and try again.',
+          })
+        }
       })
   },
 
@@ -180,6 +340,11 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
 
     const game = get()[from].find(g => g.id === gameId)
     if (!game) return
+
+    const snapshot: Partial<LibraryState> = {
+      [from]: get()[from],
+      [to]: get()[to],
+    }
 
     const existingInTarget = get()[to].some(g => g.id === gameId)
     const movedAt = new Date().toISOString()
@@ -196,13 +361,24 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
 
     if (existingInTarget) return
 
+    setPending(gameId, true)
+
     void supabase
       .from('library_games')
       .update({ status: to, added_at: movedAt })
       .eq('user_id', userId)
       .eq('game_id', gameId)
       .then(({ error }) => {
-        if (error) console.error('Failed to move game:', error.message)
+        setPending(gameId, false)
+        if (error) {
+          console.error('Failed to move game:', error.message)
+          if (get().userId === userId) set(snapshot)
+          pushToast({
+            variant: 'error',
+            title: 'Could not update library',
+            description: `${game.title} wasn't moved — check your connection and try again.`,
+          })
+        }
       })
   },
 
@@ -217,6 +393,12 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
 
   clearLibrary: () => {
     const userId = get().userId
+    const snapshot: Partial<LibraryState> = {
+      favorites: get().favorites,
+      wishlist: get().wishlist,
+      playing: get().playing,
+      completed: get().completed,
+    }
     set({ ...initialLists })
     if (!userId) return
 
@@ -225,7 +407,15 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
       .delete()
       .eq('user_id', userId)
       .then(({ error }) => {
-        if (error) console.error('Failed to clear library:', error.message)
+        if (error) {
+          console.error('Failed to clear library:', error.message)
+          if (get().userId === userId) set(snapshot)
+          pushToast({
+            variant: 'error',
+            title: 'Could not clear library',
+            description: 'Check your connection and try again.',
+          })
+        }
       })
   },
 }))
@@ -245,6 +435,11 @@ export function useGameStatus(gameId: number): LibraryStatus | null {
     if (state.completed.some(g => g.id === gameId)) return 'completed'
     return null
   })
+}
+
+/** Whether a write for this game is currently in flight, for disabling controls. */
+export function useIsGamePending(gameId: number): boolean {
+  return useLibraryStore(state => Boolean(state.pendingIds[gameId]))
 }
 
 export function useLibraryStats() {

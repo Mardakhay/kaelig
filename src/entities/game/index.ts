@@ -13,6 +13,7 @@ export {
   useLibraryStore,
   useLibraryStats,
   useGameStatus,
+  useIsGamePending,
 } from './model/libraryStore'
 export type {
   LibraryStatus,

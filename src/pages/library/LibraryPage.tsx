@@ -2,7 +2,7 @@ import { Heart, ListPlus, Play, CircleCheck as CheckCircle2, Trash2, Gamepad2 } 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useLibraryStore, useLibraryStats, type LibraryStatus, type LibraryGame } from '@entities/game'
+import { useLibraryStore, useLibraryStats, useIsGamePending, type LibraryStatus, type LibraryGame } from '@entities/game'
 import { EmptyState } from '@shared/ui/empty-state'
 import { Loader } from '@shared/ui/loader'
 import { cn } from '@shared/lib/cn'
@@ -183,12 +183,15 @@ const statusLabels: Record<LibraryStatus, string> = {
 function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryStatus }) {
   const removeGame = useLibraryStore(state => state.removeGame)
   const moveGame = useLibraryStore(state => state.moveGame)
+  const isPending = useIsGamePending(game.id)
 
   function handleRemove() {
+    if (isPending) return
     removeGame(status, game.id)
   }
 
   function handleMove(to: LibraryStatus) {
+    if (isPending) return
     moveGame(status, to, game.id)
   }
 
@@ -219,10 +222,12 @@ function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryS
         <button
           type="button"
           aria-label={`Remove ${game.title} from ${status}`}
+          aria-busy={isPending}
+          disabled={isPending}
           onClick={handleRemove}
-          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition duration-200 hover:scale-105 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition duration-200 hover:scale-105 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className={cn('h-4 w-4', isPending && 'animate-pulse')} />
         </button>
       </div>
 
@@ -241,7 +246,8 @@ function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryS
             <button
               type="button"
               onClick={() => handleMove('wishlist')}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              disabled={isPending}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               <ListPlus className="h-3 w-3" />
               Wishlist
@@ -251,7 +257,8 @@ function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryS
             <button
               type="button"
               onClick={() => handleMove('playing')}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              disabled={isPending}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Play className="h-3 w-3" />
               Playing
@@ -261,7 +268,8 @@ function LibraryGameCard({ game, status }: { game: LibraryGame; status: LibraryS
             <button
               type="button"
               onClick={() => handleMove('completed')}
-              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              disabled={isPending}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CheckCircle2 className="h-3 w-3" />
               Complete

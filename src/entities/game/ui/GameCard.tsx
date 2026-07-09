@@ -3,7 +3,7 @@ import { Calendar, Gamepad2, Heart, Star, Tag } from 'lucide-react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { cn } from '@shared/lib/cn'
 import { useAuth } from '@shared/hooks'
-import { useLibraryStore, useGameStatus, type LibraryGame } from '@entities/game'
+import { useLibraryStore, useGameStatus, useIsGamePending, type LibraryGame } from '@entities/game'
 
 export interface GameCardGame {
   id: number
@@ -28,6 +28,7 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
   const removeGame = useLibraryStore(state => state.removeGame)
   const moveGame = useLibraryStore(state => state.moveGame)
   const status = useGameStatus(game.id)
+  const isPending = useIsGamePending(game.id)
 
   const isFavorite = isAuthenticated && status === 'favorites'
 
@@ -36,6 +37,8 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
       void navigate({ to: '/auth' })
       return
     }
+
+    if (isPending) return
 
     const currentStatus = getGameStatus(game.id)
     if (currentStatus === 'favorites') {
@@ -59,7 +62,7 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
         addedAt: new Date().toISOString(),
       })
     }
-  }, [game, isAuthenticated, navigate, getGameStatus, addGame, removeGame, moveGame])
+  }, [game, isAuthenticated, isPending, navigate, getGameStatus, addGame, removeGame, moveGame])
 
   const platforms = game.platforms.slice(0, 4)
   const genres = game.genres.slice(0, 3)
@@ -99,13 +102,18 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
           type="button"
           aria-label={isFavorite ? `Remove ${game.title} from favorites` : `Add ${game.title} to favorites`}
           aria-pressed={isFavorite}
+          aria-busy={isPending}
+          disabled={isPending}
           onClick={handleFavoriteToggle}
           className={cn(
-            'absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition duration-200 hover:scale-105 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'absolute right-3 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-md border border-border/70 bg-background/85 text-muted-foreground shadow-sm backdrop-blur transition duration-200 hover:scale-105 hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100',
             isFavorite && 'border-error/40 bg-error/15 text-error'
           )}
         >
-          <Heart className={cn('h-4 w-4', isFavorite && 'fill-current')} aria-hidden="true" />
+          <Heart
+            className={cn('h-4 w-4', isFavorite && 'fill-current', isPending && 'animate-pulse')}
+            aria-hidden="true"
+          />
         </button>
       </div>
 

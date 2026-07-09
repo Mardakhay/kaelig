@@ -1,10 +1,24 @@
 import { createClient } from '@supabase/supabase-js'
-import { env } from '@shared/config/env'
+import { env, assertSupabaseConfig } from '@shared/config/env'
 
-export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-})
+try {
+  assertSupabaseConfig()
+} catch (err) {
+  // Don't hard-crash the whole app over a missing Supabase config — game
+  // browsing via RAWG still works without it. Surface a clear, actionable
+  // message instead of the cryptic "supabaseUrl is required" error
+  // supabase-js throws when handed an empty string.
+  console.error(err instanceof Error ? err.message : err)
+}
+
+export const supabase = createClient(
+  env.supabaseUrl || 'https://placeholder.supabase.co',
+  env.supabaseAnonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  }
+)
