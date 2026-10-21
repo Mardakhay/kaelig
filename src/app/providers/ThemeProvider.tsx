@@ -1,4 +1,6 @@
-import { createContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, type ReactNode } from 'react'
+
+import { ThemeContext } from './themeContext'
 
 const STORAGE_KEY = 'kaelig-theme'
 
@@ -21,14 +23,6 @@ function applyTheme(theme: 'dark' | 'light') {
     metaThemeColor.setAttribute('content', theme === 'light' ? '#f8fafc' : '#0f1115')
   }
 }
-
-export interface ThemeContextValue {
-  theme: 'dark' | 'light'
-  setTheme: (theme: 'dark' | 'light') => void
-  toggleTheme: () => void
-}
-
-export const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 interface ThemeProviderProps {
   children: ReactNode

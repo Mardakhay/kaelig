@@ -8,8 +8,15 @@ import { useAuth } from '@shared/hooks'
 import { UserMenu } from './UserMenu'
 
 export function Header() {
-  const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
+  const [menuState, setMenuState] = useState({ pathname: location.pathname, open: false })
+  const menuOpen = menuState.pathname === location.pathname && menuState.open
+  const setMenuOpen = (nextOpen: boolean | ((open: boolean) => boolean)) => {
+    setMenuState({
+      pathname: location.pathname,
+      open: typeof nextOpen === 'function' ? nextOpen(menuOpen) : nextOpen,
+    })
+  }
   const { isAuthenticated, user, profile, signOut } = useAuth()
   const [isSigningOut, setIsSigningOut] = useState(false)
 
@@ -23,10 +30,6 @@ export function Header() {
   }
 
   useEffect(() => {
-    setMenuOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : ''
     return () => {
       document.body.style.overflow = ''
@@ -37,7 +40,10 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-md">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6">
         {/* Logo — hidden on lg+ because sidebar shows it */}
-        <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80 lg:hidden">
+        <Link
+          to="/"
+          className="flex items-center gap-2.5 transition-opacity hover:opacity-80 lg:hidden"
+        >
           <Gamepad2 className="h-6 w-6 text-primary" />
           <span className="text-lg font-bold tracking-tight text-foreground">Kaelig</span>
         </Link>

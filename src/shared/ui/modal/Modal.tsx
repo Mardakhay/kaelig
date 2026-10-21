@@ -22,10 +22,7 @@ export const ModalOverlay = forwardRef<HTMLDivElement, ModalOverlayProps>(
   ({ className, onClick, onClose, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn(
-        'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
-        className
-      )}
+      className={cn('fixed inset-0 z-50 bg-black/60 backdrop-blur-sm', className)}
       onClick={e => {
         onClick?.(e)
         if (e.target === e.currentTarget) onClose?.()
@@ -70,7 +67,7 @@ ModalContent.displayName = 'ModalContent'
 
 /* ── Header ──────────────────────────────────────────────── */
 
-export interface ModalHeaderProps extends HTMLAttributes<HTMLDivElement> {}
+export type ModalHeaderProps = HTMLAttributes<HTMLDivElement>
 
 export const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
   ({ className, ...props }, ref) => (
@@ -85,7 +82,7 @@ ModalHeader.displayName = 'ModalHeader'
 
 /* ── Title ───────────────────────────────────────────────── */
 
-export interface ModalTitleProps extends HTMLAttributes<HTMLHeadingElement> {}
+export type ModalTitleProps = HTMLAttributes<HTMLHeadingElement>
 
 export const ModalTitle = forwardRef<HTMLHeadingElement, ModalTitleProps>(
   ({ className, ...props }, ref) => (
@@ -100,7 +97,7 @@ ModalTitle.displayName = 'ModalTitle'
 
 /* ── Description ─────────────────────────────────────────── */
 
-export interface ModalDescriptionProps extends HTMLAttributes<HTMLParagraphElement> {}
+export type ModalDescriptionProps = HTMLAttributes<HTMLParagraphElement>
 
 export const ModalDescription = forwardRef<HTMLParagraphElement, ModalDescriptionProps>(
   ({ className, ...props }, ref) => (
@@ -111,27 +108,22 @@ ModalDescription.displayName = 'ModalDescription'
 
 /* ── Body ────────────────────────────────────────────────── */
 
-export interface ModalBodyProps extends HTMLAttributes<HTMLDivElement> {}
+export type ModalBodyProps = HTMLAttributes<HTMLDivElement>
 
 export const ModalBody = forwardRef<HTMLDivElement, ModalBodyProps>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('p-6', className)} {...props} />
-  )
+  ({ className, ...props }, ref) => <div ref={ref} className={cn('p-6', className)} {...props} />
 )
 ModalBody.displayName = 'ModalBody'
 
 /* ── Footer ──────────────────────────────────────────────── */
 
-export interface ModalFooterProps extends HTMLAttributes<HTMLDivElement> {}
+export type ModalFooterProps = HTMLAttributes<HTMLDivElement>
 
 export const ModalFooter = forwardRef<HTMLDivElement, ModalFooterProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn(
-        'flex items-center justify-end gap-3 border-t border-border p-6',
-        className
-      )}
+      className={cn('flex items-center justify-end gap-3 border-t border-border p-6', className)}
       {...props}
     />
   )
@@ -140,7 +132,7 @@ ModalFooter.displayName = 'ModalFooter'
 
 /* ── Close Button ────────────────────────────────────────── */
 
-export interface ModalCloseProps extends ButtonHTMLAttributes<HTMLButtonElement> {}
+export type ModalCloseProps = ButtonHTMLAttributes<HTMLButtonElement>
 
 export const ModalClose = forwardRef<HTMLButtonElement, ModalCloseProps>(
   ({ className, ...props }, ref) => (
@@ -181,7 +173,15 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
   return Array.from(elements).filter(el => el.offsetParent !== null)
 }
 
-export function Modal({ open, onClose, size, children, className, title, description }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  size,
+  children,
+  className,
+  title,
+  description,
+}: ModalProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
   const titleId = useId()
