@@ -230,11 +230,13 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
   },
 
   addGame: (status, game) => {
-    const userId = get().userId
-    if (!userId) return
+    const state = get()
+    const userId = state.userId
+    if (!userId || state.pendingIds[game.id]) return
 
-    const alreadyThere = get()[status].some(g => g.id === game.id)
-    if (alreadyThere) return
+    // A game can live in only one list. Do not issue an upsert when it is
+    // already in the requested list.
+    if (state[status].some(g => g.id === game.id)) return
 
     const gameWithTimestamp: LibraryGame = {
       ...game,
@@ -242,10 +244,10 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
     }
 
     const snapshot: Partial<LibraryState> = {
-      favorites: get().favorites,
-      wishlist: get().wishlist,
-      playing: get().playing,
-      completed: get().completed,
+      favorites: state.favorites,
+      wishlist: state.wishlist,
+      playing: state.playing,
+      completed: state.completed,
     }
 
     set(state => {
@@ -262,9 +264,8 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
 
     setPending(game.id, true)
 
-    void supabase
-      .from('library_games')
-      .upsert(
+    void Promise.resolve(
+      supabase.from('library_games').upsert(
         {
           user_id: userId,
           game_id: game.id,
@@ -279,27 +280,44 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
         },
         { onConflict: 'user_id,game_id' }
       )
+    )
       .then(({ error }) => {
-        setPending(game.id, false)
-        if (error) {
-          console.error('Failed to save game to library:', error.message)
-          // Only roll back if we're still looking at the same user's data —
-          // don't stomp on a library that's since been hydrated for someone else.
-          if (get().userId === userId) set(snapshot)
-          pushToast({
-            variant: 'error',
-            title: 'Could not save to library',
-            description: `${game.title} wasn't added — check your connection and try again.`,
-          })
+        if (!error) {
+          setPending(game.id, false)
+          return
         }
+
+        console.error('Failed to save game to library:', error.message)
+        setPending(game.id, false)
+        // Only roll back if we're still looking at the same user's data —
+        // don't stomp on a library that's since been hydrated for someone else.
+        if (get().userId === userId) set(snapshot)
+        pushToast({
+          variant: 'error',
+          title: 'Could not save to library',
+          description: `${game.title} wasn't added — check your connection and try again.`,
+        })
+      })
+      .catch(error => {
+        setPending(game.id, false)
+        console.error('Failed to save game to library:', error)
+        if (get().userId === userId) set(snapshot)
+        pushToast({
+          variant: 'error',
+          title: 'Could not save to library',
+          description: `${game.title} wasn't added — check your connection and try again.`,
+        })
       })
   },
 
   removeGame: (status, gameId) => {
-    const userId = get().userId
-    if (!userId) return
+    const state = get()
+    const userId = state.userId
+    if (!userId || state.pendingIds[gameId]) return
 
-    const removedGame = get()[status].find(g => g.id === gameId)
+    // Ignore stale controls that refer to a list the game no longer belongs to.
+    const removedGame = state[status].find(g => g.id === gameId)
+    if (!removedGame) return
 
     set(state => ({
       [status]: state[status].filter(g => g.id !== gameId),
@@ -307,43 +325,56 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
 
     setPending(gameId, true)
 
-    void supabase
-      .from('library_games')
-      .delete()
-      .eq('user_id', userId)
-      .eq('game_id', gameId)
+    void Promise.resolve(
+      supabase.from('library_games').delete().eq('user_id', userId).eq('game_id', gameId)
+    )
       .then(({ error }) => {
         setPending(gameId, false)
-        if (error) {
-          console.error('Failed to remove game from library:', error.message)
-          if (get().userId === userId && removedGame) {
-            set(state =>
-              state[status].some(g => g.id === gameId)
-                ? state
-                : { [status]: [removedGame, ...state[status]] }
-            )
-          }
-          pushToast({
-            variant: 'error',
-            title: 'Could not remove from library',
-            description: removedGame
-              ? `${removedGame.title} wasn't removed — check your connection and try again.`
-              : 'Check your connection and try again.',
-          })
+        if (!error) return
+
+        console.error('Failed to remove game from library:', error.message)
+        if (get().userId === userId && removedGame) {
+          set(state =>
+            state[status].some(g => g.id === gameId)
+              ? state
+              : { [status]: [removedGame, ...state[status]] }
+          )
         }
+        pushToast({
+          variant: 'error',
+          title: 'Could not remove from library',
+          description: `${removedGame.title} wasn't removed — check your connection and try again.`,
+        })
+      })
+      .catch(error => {
+        setPending(gameId, false)
+        console.error('Failed to remove game from library:', error)
+        if (get().userId === userId) {
+          set(state =>
+            state[status].some(g => g.id === gameId)
+              ? state
+              : { [status]: [removedGame, ...state[status]] }
+          )
+        }
+        pushToast({
+          variant: 'error',
+          title: 'Could not remove from library',
+          description: `${removedGame.title} wasn't removed — check your connection and try again.`,
+        })
       })
   },
 
   moveGame: (from, to, gameId) => {
-    const userId = get().userId
-    if (!userId) return
+    const state = get()
+    const userId = state.userId
+    if (!userId || state.pendingIds[gameId] || from === to) return
 
-    const game = get()[from].find(g => g.id === gameId)
+    const game = state[from].find(g => g.id === gameId)
     if (!game) return
 
     const snapshot: Partial<LibraryState> = {
-      [from]: get()[from],
-      [to]: get()[to],
+      [from]: state[from],
+      [to]: state[to],
     }
 
     const existingInTarget = get()[to].some(g => g.id === gameId)
@@ -363,22 +394,34 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
 
     setPending(gameId, true)
 
-    void supabase
-      .from('library_games')
-      .update({ status: to, added_at: movedAt })
-      .eq('user_id', userId)
-      .eq('game_id', gameId)
+    void Promise.resolve(
+      supabase
+        .from('library_games')
+        .update({ status: to, added_at: movedAt })
+        .eq('user_id', userId)
+        .eq('game_id', gameId)
+    )
       .then(({ error }) => {
         setPending(gameId, false)
-        if (error) {
-          console.error('Failed to move game:', error.message)
-          if (get().userId === userId) set(snapshot)
-          pushToast({
-            variant: 'error',
-            title: 'Could not update library',
-            description: `${game.title} wasn't moved — check your connection and try again.`,
-          })
-        }
+        if (!error) return
+
+        console.error('Failed to move game:', error.message)
+        if (get().userId === userId) set(snapshot)
+        pushToast({
+          variant: 'error',
+          title: 'Could not update library',
+          description: `${game.title} wasn't moved — check your connection and try again.`,
+        })
+      })
+      .catch(error => {
+        setPending(gameId, false)
+        console.error('Failed to move game:', error)
+        if (get().userId === userId) set(snapshot)
+        pushToast({
+          variant: 'error',
+          title: 'Could not update library',
+          description: `${game.title} wasn't moved — check your connection and try again.`,
+        })
       })
   },
 
@@ -392,30 +435,38 @@ export const useLibraryStore = create<LibraryState>()((set, get) => ({
   },
 
   clearLibrary: () => {
-    const userId = get().userId
+    const state = get()
+    const userId = state.userId
+    if (!userId || Object.keys(state.pendingIds).length > 0) return
+
     const snapshot: Partial<LibraryState> = {
-      favorites: get().favorites,
-      wishlist: get().wishlist,
-      playing: get().playing,
-      completed: get().completed,
+      favorites: state.favorites,
+      wishlist: state.wishlist,
+      playing: state.playing,
+      completed: state.completed,
     }
     set({ ...initialLists })
-    if (!userId) return
 
-    void supabase
-      .from('library_games')
-      .delete()
-      .eq('user_id', userId)
+    void Promise.resolve(supabase.from('library_games').delete().eq('user_id', userId))
       .then(({ error }) => {
-        if (error) {
-          console.error('Failed to clear library:', error.message)
-          if (get().userId === userId) set(snapshot)
-          pushToast({
-            variant: 'error',
-            title: 'Could not clear library',
-            description: 'Check your connection and try again.',
-          })
-        }
+        if (!error) return
+
+        console.error('Failed to clear library:', error.message)
+        if (get().userId === userId) set(snapshot)
+        pushToast({
+          variant: 'error',
+          title: 'Could not clear library',
+          description: 'Check your connection and try again.',
+        })
+      })
+      .catch(error => {
+        console.error('Failed to clear library:', error)
+        if (get().userId === userId) set(snapshot)
+        pushToast({
+          variant: 'error',
+          title: 'Could not clear library',
+          description: 'Check your connection and try again.',
+        })
       })
   },
 }))
@@ -477,13 +528,11 @@ export function useLibraryStats() {
     const genreEntries = Object.entries(genreCounts)
     const platformEntries = Object.entries(platformCounts)
 
-    const topGenre = genreEntries.length > 0
-      ? genreEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0]
-      : null
+    const topGenre =
+      genreEntries.length > 0 ? genreEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0] : null
 
-    const favoritePlatform = platformEntries.length > 0
-      ? platformEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0]
-      : null
+    const favoritePlatform =
+      platformEntries.length > 0 ? platformEntries.reduce((a, b) => (b[1] > a[1] ? b : a))[0] : null
 
     const averageRating = totalGames > 0 ? ratingSum / totalGames : 0
 
