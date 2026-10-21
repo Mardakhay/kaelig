@@ -1,6 +1,14 @@
 import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Clock, Flame, RefreshCcw, Sparkles, Trophy, CircleAlert as AlertCircle } from 'lucide-react'
+import {
+  ArrowRight,
+  Clock,
+  Flame,
+  RefreshCcw,
+  Sparkles,
+  Trophy,
+  CircleAlert as AlertCircle,
+} from 'lucide-react'
 import {
   GameCard,
   GameCardSkeleton,
@@ -44,7 +52,7 @@ function useDateRanges() {
   }, [dateKey])
 
   return useMemo(() => {
-    const today = new Date()
+    const today = new Date(dateKey + 'T00:00:00.000Z')
     const upcomingEndDate = new Date(today)
     upcomingEndDate.setFullYear(today.getFullYear() + 1)
     const newReleaseStartDate = new Date(today)

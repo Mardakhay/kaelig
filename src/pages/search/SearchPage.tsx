@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent,
-} from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X } from 'lucide-react'
@@ -69,35 +62,45 @@ export function SearchPage() {
     ordering: search.ordering,
   }
   const [searchValue, setSearchValue] = useState(queryFromUrl)
+  const [previousQueryFromUrl, setPreviousQueryFromUrl] = useState(queryFromUrl)
+
+  // Synchronize the draft when browser navigation changes the URL, while keeping
+  // unsubmitted typing local to this page.
+  if (queryFromUrl !== previousQueryFromUrl) {
+    setPreviousQueryFromUrl(queryFromUrl)
+    setSearchValue(queryFromUrl)
+  }
+
+  const debouncedSearch = useDebouncedValue(searchValue.trim(), 300)
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1)
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+  const [previousDebouncedSearch, setPreviousDebouncedSearch] = useState(debouncedSearch)
+
+  // Reset suggestion selection whenever the debounced query changes.
+  if (debouncedSearch !== previousDebouncedSearch) {
+    setPreviousDebouncedSearch(debouncedSearch)
+    setActiveSuggestionIndex(-1)
+    setSuggestionsOpen(debouncedSearch.length > 1)
+  }
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const inputId = useId()
   const listboxId = useId()
-  const debouncedSearch = useDebouncedValue(searchValue.trim(), 300)
   const submittedSearch = queryFromUrl.trim()
   const filtersAreActive = hasActiveFilters(filters)
   const resultsEnabled = submittedSearch.length > 0 || filtersAreActive
+  const { genre, platform, year, metacritic, rating, ordering } = filters
   const resultParams = useMemo<GameListParams>(
     () => ({
       search: submittedSearch || undefined,
       page_size: searchPageSize,
-      genres: filters.genre,
-      parent_platforms: filters.platform,
-      dates: yearToDates(filters.year),
-      metacritic: filters.metacritic,
-      rating: filters.rating,
-      ordering: filters.ordering || undefined,
+      genres: genre,
+      parent_platforms: platform,
+      dates: yearToDates(year),
+      metacritic,
+      rating,
+      ordering: ordering || undefined,
     }),
-    [
-      filters.genre,
-      filters.metacritic,
-      filters.ordering,
-      filters.platform,
-      filters.rating,
-      filters.year,
-      submittedSearch,
-    ]
+    [genre, metacritic, ordering, platform, rating, year, submittedSearch]
   )
   const prefetchNextPage = usePrefetchNextGamesPage(resultParams)
 
@@ -123,21 +126,9 @@ export function SearchPage() {
     [suggestionsQuery.data]
   )
   const results = useMemo(
-    () =>
-      resultsData?.pages.flatMap(page =>
-        page.results.map(mapRawgGameToGameCard)
-      ) ?? [],
+    () => resultsData?.pages.flatMap(page => page.results.map(mapRawgGameToGameCard)) ?? [],
     [resultsData]
   )
-
-  useEffect(() => {
-    setSearchValue(queryFromUrl)
-  }, [queryFromUrl])
-
-  useEffect(() => {
-    setActiveSuggestionIndex(-1)
-    setSuggestionsOpen(debouncedSearch.length > 1)
-  }, [debouncedSearch])
 
   useEffect(() => {
     const loadMoreElement = loadMoreRef.current
@@ -219,9 +210,7 @@ export function SearchPage() {
     if (event.key === 'ArrowDown') {
       event.preventDefault()
       setSuggestionsOpen(true)
-      setActiveSuggestionIndex(currentIndex =>
-        Math.min(currentIndex + 1, suggestions.length - 1)
-      )
+      setActiveSuggestionIndex(currentIndex => Math.min(currentIndex + 1, suggestions.length - 1))
       return
     }
 
@@ -244,14 +233,19 @@ export function SearchPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-foreground">Search games</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Find games by title and refine live RAWG results by genre, platform, year, score, rating, and order.
+            Find games by title and refine live RAWG results by genre, platform, year, score,
+            rating, and order.
           </p>
         </div>
 
-        <form className="relative max-w-3xl" role="search" onSubmit={event => {
-          event.preventDefault()
-          submitSearch()
-        }}>
+        <form
+          className="relative max-w-3xl"
+          role="search"
+          onSubmit={event => {
+            event.preventDefault()
+            submitSearch()
+          }}
+        >
           <label htmlFor={inputId} className="sr-only">
             Search games
           </label>
@@ -294,13 +288,20 @@ export function SearchPage() {
               {!suggestionsQuery.isLoading && suggestionsQuery.error && (
                 <div className="p-3 text-sm text-error">{suggestionsQuery.error.message}</div>
               )}
-              {!suggestionsQuery.isLoading && !suggestionsQuery.error && suggestions.length === 0 && (
-                <div className="p-3 text-sm text-muted-foreground">No suggestions found.</div>
-              )}
+              {!suggestionsQuery.isLoading &&
+                !suggestionsQuery.error &&
+                suggestions.length === 0 && (
+                  <div className="p-3 text-sm text-muted-foreground">No suggestions found.</div>
+                )}
               {!suggestionsQuery.isLoading && !suggestionsQuery.error && suggestions.length > 0 && (
                 <ul id={listboxId} role="listbox" aria-label="Search suggestions" className="py-1">
                   {suggestions.map((game, index) => (
-                    <li key={game.id} role="option" aria-selected={activeSuggestionIndex === index} id={`${listboxId}-${index}`}>
+                    <li
+                      key={game.id}
+                      role="option"
+                      aria-selected={activeSuggestionIndex === index}
+                      id={`${listboxId}-${index}`}
+                    >
                       <button
                         type="button"
                         onMouseDown={event => event.preventDefault()}
@@ -319,7 +320,9 @@ export function SearchPage() {
                         />
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium">{game.title}</span>
-                          <span className="block text-xs text-muted-foreground">{game.releaseYear}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {game.releaseYear}
+                          </span>
                         </span>
                       </button>
                     </li>
