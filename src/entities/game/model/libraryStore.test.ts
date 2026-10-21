@@ -37,7 +37,10 @@ function createQueryBuilder(result: QueryResult) {
     upsert: vi.fn(() => builder),
     update: vi.fn(() => builder),
     delete: vi.fn(() => builder),
-    then: (onFulfilled: (value: QueryResult) => unknown) => Promise.resolve(result).then(onFulfilled),
+    then: (
+      onFulfilled: (value: QueryResult) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => Promise.resolve(result).then(onFulfilled, onRejected),
   }
   return builder
 }
@@ -52,7 +55,10 @@ function createDeferredQueryBuilder() {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     order: vi.fn(() => builder),
-    then: (onFulfilled: (value: QueryResult) => unknown) => promise.then(onFulfilled),
+    then: (
+      onFulfilled: (value: QueryResult) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => promise.then(onFulfilled, onRejected),
   }
   return { builder, resolve: resolveFn }
 }
@@ -124,8 +130,26 @@ describe('addGame', () => {
     expect(mockPushToast).not.toHaveBeenCalled()
   })
 
+  test('rolls back and clears pending state when the write promise rejects', async () => {
+    const builder = createQueryBuilder({ data: null, error: null })
+    builder.then = (
+      onFulfilled: (value: QueryResult) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => Promise.reject(new Error('connection dropped')).then(onFulfilled, onRejected) as never
+    mockFrom.mockReturnValue(builder)
+
+    useLibraryStore.getState().addGame('favorites', sampleGame())
+    await flushPromises()
+
+    expect(useLibraryStore.getState().favorites).toHaveLength(0)
+    expect(useLibraryStore.getState().pendingIds[1]).toBeUndefined()
+    expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'error' }))
+  })
+
   test('rolls back the optimistic update and notifies the user if the write fails', async () => {
-    mockFrom.mockReturnValue(createQueryBuilder({ data: null, error: { message: 'network error' } }))
+    mockFrom.mockReturnValue(
+      createQueryBuilder({ data: null, error: { message: 'network error' } })
+    )
 
     useLibraryStore.getState().addGame('favorites', sampleGame())
     expect(useLibraryStore.getState().favorites).toHaveLength(1)
@@ -137,10 +161,66 @@ describe('addGame', () => {
   })
 })
 
+describe('library mutation guards', () => {
+  test('does not start a second write for a game that is already pending', async () => {
+    const builder = createQueryBuilder({ data: null, error: null })
+    mockFrom.mockReturnValue(builder)
+
+    useLibraryStore.getState().addGame('favorites', sampleGame())
+    useLibraryStore.getState().moveGame('favorites', 'playing', 1)
+
+    expect(builder.upsert).toHaveBeenCalledTimes(1)
+    expect(builder.update).not.toHaveBeenCalled()
+    expect(useLibraryStore.getState().favorites).toHaveLength(1)
+    expect(useLibraryStore.getState().playing).toHaveLength(0)
+  })
+
+  test('ignores removal when the game is no longer in the requested list', () => {
+    const builder = createQueryBuilder({ data: null, error: null })
+    mockFrom.mockReturnValue(builder)
+    useLibraryStore.setState({ wishlist: [sampleGame()] })
+
+    useLibraryStore.getState().removeGame('favorites', 1)
+
+    expect(builder.delete).not.toHaveBeenCalled()
+    expect(useLibraryStore.getState().wishlist).toHaveLength(1)
+  })
+
+  test('ignores a move from a list to itself', () => {
+    const builder = createQueryBuilder({ data: null, error: null })
+    mockFrom.mockReturnValue(builder)
+    useLibraryStore.setState({ favorites: [sampleGame()] })
+
+    useLibraryStore.getState().moveGame('favorites', 'favorites', 1)
+
+    expect(builder.update).not.toHaveBeenCalled()
+    expect(useLibraryStore.getState().favorites).toHaveLength(1)
+  })
+})
+
 describe('removeGame', () => {
+  test('restores the game and clears pending state when delete promise rejects', async () => {
+    useLibraryStore.setState({ favorites: [sampleGame()] })
+    const builder = createQueryBuilder({ data: null, error: null })
+    builder.then = (
+      onFulfilled: (value: QueryResult) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => Promise.reject(new Error('connection dropped')).then(onFulfilled, onRejected) as never
+    mockFrom.mockReturnValue(builder)
+
+    useLibraryStore.getState().removeGame('favorites', 1)
+    await flushPromises()
+
+    expect(useLibraryStore.getState().favorites).toHaveLength(1)
+    expect(useLibraryStore.getState().pendingIds[1]).toBeUndefined()
+    expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'error' }))
+  })
+
   test('rolls back and restores the game if the delete fails', async () => {
     useLibraryStore.setState({ favorites: [sampleGame()] })
-    mockFrom.mockReturnValue(createQueryBuilder({ data: null, error: { message: 'network error' } }))
+    mockFrom.mockReturnValue(
+      createQueryBuilder({ data: null, error: { message: 'network error' } })
+    )
 
     useLibraryStore.getState().removeGame('favorites', 1)
     expect(useLibraryStore.getState().favorites).toHaveLength(0)
@@ -153,6 +233,24 @@ describe('removeGame', () => {
 })
 
 describe('moveGame', () => {
+  test('rolls a move back and clears pending state when update promise rejects', async () => {
+    useLibraryStore.setState({ wishlist: [sampleGame()] })
+    const builder = createQueryBuilder({ data: null, error: null })
+    builder.then = (
+      onFulfilled: (value: QueryResult) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => Promise.reject(new Error('connection dropped')).then(onFulfilled, onRejected) as never
+    mockFrom.mockReturnValue(builder)
+
+    useLibraryStore.getState().moveGame('wishlist', 'favorites', 1)
+    await flushPromises()
+
+    expect(useLibraryStore.getState().wishlist).toHaveLength(1)
+    expect(useLibraryStore.getState().favorites).toHaveLength(0)
+    expect(useLibraryStore.getState().pendingIds[1]).toBeUndefined()
+    expect(mockPushToast).toHaveBeenCalledWith(expect.objectContaining({ variant: 'error' }))
+  })
+
   test('moves the game with a single remote call and rolls back both lists on failure', async () => {
     useLibraryStore.setState({ wishlist: [sampleGame()] })
     const builder = createQueryBuilder({ data: null, error: { message: 'network error' } })
