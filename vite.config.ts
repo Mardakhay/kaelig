@@ -7,9 +7,9 @@ import path from 'path'
 
 export default defineConfig(({ mode }) => {
   const loadedEnv = loadEnv(mode, process.cwd(), '')
-  const rawgApiKey = loadedEnv.RAWG_API_KEY ?? loadedEnv.VITE_RAWG_API_KEY ?? ''
+  const rawgApiKey = loadedEnv.RAWG_API_KEY ?? ''
   const rawgApiUrl = new URL(loadedEnv.VITE_RAWG_API_URL ?? 'https://api.rawg.io/api')
-  const rawgApiPath = rawgApiUrl.pathname.replace(/\\/+$/, '')
+  const rawgApiPath = rawgApiUrl.pathname.replace(/\/+$/, '')
 
   return {
     plugins: [TanStackRouterVite({ autoCodeSplitting: true }), react(), tailwindcss()],
@@ -30,14 +30,14 @@ export default defineConfig(({ mode }) => {
           target: rawgApiUrl.origin,
           changeOrigin: true,
           rewrite: (requestPath) =>
-            `${rawgApiPath}${requestPath.replace(/^\\/api\\/rawg/, '')}`,
+            rawgApiPath + requestPath.replace(/^\/api\/rawg/, ''),
           configure: (proxy) => {
             proxy.on('proxyReq', (proxyRequest) => {
               if (!rawgApiKey) return
 
               const upstreamUrl = new URL(proxyRequest.path, rawgApiUrl.origin)
               upstreamUrl.searchParams.set('key', rawgApiKey)
-              proxyRequest.path = `${upstreamUrl.pathname}${upstreamUrl.search}`
+              proxyRequest.path = upstreamUrl.pathname + upstreamUrl.search
             })
           },
         },
