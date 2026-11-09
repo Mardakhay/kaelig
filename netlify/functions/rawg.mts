@@ -31,7 +31,8 @@ export default async function rawgProxy(request: Request): Promise<Response> {
     return jsonError('Unsupported RAWG API endpoint.', 404)
   }
 
-  const apiKey = Netlify.env.get('RAWG_API_KEY')
+  // Keep existing Netlify deployments working during migration. Prefer RAWG_API_KEY.
+  const apiKey = Netlify.env.get('RAWG_API_KEY') ?? Netlify.env.get('VITE_RAWG_API_KEY')
 
   if (!apiKey) {
     return jsonError('RAWG_API_KEY is missing from the Netlify Functions environment.', 500)
