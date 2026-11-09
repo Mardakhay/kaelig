@@ -48,11 +48,12 @@ Create a local `.env` file. Never commit real credentials.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `RAWG_API_KEY` | Yes for game data | Server-side RAWG key used by the Netlify function and local Vite proxy; it is not included in the browser bundle |
+| `VITE_RAWG_API_KEY` | Legacy only | Temporary fallback for existing Netlify/local configurations; replace it with secret `RAWG_API_KEY` and remove the legacy variable after migration |
 | `VITE_RAWG_API_URL` | No | RAWG API base URL for the local Vite proxy; defaults to `https://api.rawg.io/api` |
 | `VITE_SUPABASE_URL` | Yes for accounts/library | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Yes for accounts/library | Supabase publishable/legacy anon key; never a service-role/secret key |
 
-For Netlify, add `RAWG_API_KEY` to the site's environment variables and enable the **Functions** scope. Keep it server-side (do not prefix it with `VITE_`). Redeploy after changing environment variables so the function receives the new value.
+For Netlify, add `RAWG_API_KEY` to the site's environment variables, mark it as secret, and enable the **Functions** scope. Existing deployments are temporarily supported through `VITE_RAWG_API_KEY` as a server-side fallback, but replace that legacy variable with `RAWG_API_KEY` and remove the old variable when your Netlify permissions allow it. Redeploy after changing environment variables so the function receives the new value. The frontend no longer reads either key.
 
 Supabase client keys are designed for public clients only when database access is protected by correct Row-Level Security (RLS) policies. Never put a Supabase service-role or secret key in a `VITE_*` variable.
 
