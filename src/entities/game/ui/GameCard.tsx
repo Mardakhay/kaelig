@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react'
 import { Calendar, Gamepad2, Heart, Star, Tag } from 'lucide-react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { cn } from '@shared/lib/cn'
+import { GameImage } from './GameImage'
 import { useAuth } from '@shared/hooks'
 import { useLibraryStore, useGameStatus, useIsGamePending, type LibraryGame } from '@entities/game'
 
@@ -84,7 +85,7 @@ const GameCardInner = ({ game, className }: GameCardProps) => {
       </Link>
 
       <div className="relative z-10 aspect-[4/3] overflow-hidden bg-muted">
-        <img
+        <GameImage
           src={game.image}
           alt=""
           className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-105"

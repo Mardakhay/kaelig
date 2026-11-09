@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import {
   GameCard,
+  GameImage,
   GameCardSkeleton,
   mapRawgGameToGameCard,
   useGamesQuery,
@@ -248,7 +249,7 @@ function HeroSection({
           {!isLoading && error && <HeroError error={error} />}
           {!isLoading && !error && featuredGame && (
             <>
-              <img
+              <GameImage
                 src={featuredGame.image}
                 alt={featuredGame.title}
                 className="h-full w-full object-cover"
