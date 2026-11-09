@@ -8,7 +8,9 @@ export function getPreferredGameImage(
       .map(candidate => candidate?.trim())
       .find(
         (candidate): candidate is string =>
-          Boolean(candidate) && /^https?:\/\//i.test(candidate)
+          typeof candidate === 'string' &&
+          candidate.length > 0 &&
+          /^https?:\/\//i.test(candidate)
       ) ?? GAME_IMAGE_FALLBACK
   )
 }
