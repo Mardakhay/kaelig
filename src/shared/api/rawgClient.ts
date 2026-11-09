@@ -1,5 +1,3 @@
-import { assertRawgApiKey, env } from '@shared/config/env'
-
 type RequestParams = { [key: string]: string | number | boolean | null | undefined }
 
 interface RawgErrorPayload {
@@ -18,11 +16,8 @@ export class RawgApiError extends Error {
 }
 
 function createUrl(endpoint: string, params: RequestParams = {}) {
-  assertRawgApiKey()
-
   const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
-  const url = new URL(`${env.rawgApiUrl}${normalizedEndpoint}`)
-  url.searchParams.set('key', env.rawgApiKey)
+  const url = new URL(`/api/rawg${normalizedEndpoint}`, window.location.origin)
 
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
