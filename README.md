@@ -5,7 +5,7 @@ A modern game discovery platform inspired by Steam, RAWG, and Backloggd. Discove
 ## Features
 
 - Email/password authentication with Supabase Auth
-- Game discovery and details powered by RAWG
+- Game discovery and details powered by RAWG through a same-origin serverless proxy
 - Search suggestions, genre/platform/year/rating filters, and infinite scroll
 - Personal favorites, wishlist, playing, and completed lists
 - Library and profile persistence through Supabase
@@ -39,7 +39,7 @@ Fill in the environment values, then run:
 npm run dev
 ```
 
-The development server prints the local URL (normally `http://localhost:5173`).
+The development server prints the local URL (normally `http://localhost:5173`). The Vite dev-server proxy forwards RAWG requests and adds the API key server-side.
 
 ## Environment
 
@@ -47,12 +47,14 @@ Create a local `.env` file. Never commit real credentials.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `VITE_RAWG_API_KEY` | Yes for game data | RAWG API key used by the browser client |
-| `VITE_RAWG_API_URL` | No | API base URL; defaults to `https://api.rawg.io/api` |
+| `RAWG_API_KEY` | Yes for game data | Server-side RAWG key used by the Netlify function and local Vite proxy; it is not included in the browser bundle |
+| `VITE_RAWG_API_URL` | No | RAWG API base URL for the local Vite proxy; defaults to `https://api.rawg.io/api` |
 | `VITE_SUPABASE_URL` | Yes for accounts/library | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Yes for accounts/library | Supabase publishable/legacy anon key; never a service-role/secret key |
 
-All `VITE_*` variables are included in the client bundle. RAWG keys can therefore be seen by visitors; configure API usage restrictions and usage limits where available. Supabase client keys are designed for public clients only when database access is protected by correct Row-Level Security (RLS) policies. Never put a Supabase service-role or secret key in a `VITE_*` variable.
+For Netlify, add `RAWG_API_KEY` to the site's environment variables and enable the **Functions** scope. Keep it server-side (do not prefix it with `VITE_`). Redeploy after changing environment variables so the function receives the new value.
+
+Supabase client keys are designed for public clients only when database access is protected by correct Row-Level Security (RLS) policies. Never put a Supabase service-role or secret key in a `VITE_*` variable.
 
 If Supabase settings are absent, the app is intended to remain usable for public game browsing, while authentication and cloud library features will not work. RAWG requests require an API key.
 
@@ -109,6 +111,7 @@ Tests are colocated with the functionality they cover.
 
 ## Reliability notes
 
+- RAWG requests use a same-origin Netlify Function in production and a Vite proxy in development; the API key stays on the server.
 - React Query request functions pass their `AbortSignal` through to fetch, allowing obsolete requests to be cancelled.
 - Library hydration guards against stale responses when sessions change.
 - Library updates are optimistic and surface a toast when persistence fails.
