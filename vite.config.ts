@@ -7,7 +7,7 @@ import path from 'path'
 
 export default defineConfig(({ mode }) => {
   const loadedEnv = loadEnv(mode, process.cwd(), '')
-  const rawgApiKey = loadedEnv.RAWG_API_KEY ?? ''
+  const rawgApiKey = loadedEnv.RAWG_API_KEY ?? loadedEnv.VITE_RAWG_API_KEY ?? ''
   const rawgApiUrl = new URL(loadedEnv.VITE_RAWG_API_URL ?? 'https://api.rawg.io/api')
   const rawgApiPath = rawgApiUrl.pathname.replace(/\/+$/, '')
 
