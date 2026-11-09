@@ -8,6 +8,7 @@ export {
 } from './api/useGamesQuery'
 export { mapRawgGameToGameCard } from './lib/mapRawgGameToGameCard'
 export { GameCard, GameCardSkeleton } from './ui/GameCard'
+export { GameImage } from './ui/GameImage'
 export type { GameCardGame } from './ui/GameCard'
 export {
   useLibraryStore,

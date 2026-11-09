@@ -1,7 +1,6 @@
 import { type GameCardGame } from '../ui/GameCard'
 import { type RawgGame } from '../model/types'
-
-const fallbackImage = 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=900&q=80'
+import { getPreferredGameImage } from './gameImage'
 
 export function mapRawgGameToGameCard(game: RawgGame): GameCardGame {
   const releaseYear = game.released ? new Date(game.released).getFullYear() : new Date().getFullYear()
@@ -10,7 +9,7 @@ export function mapRawgGameToGameCard(game: RawgGame): GameCardGame {
   return {
     id: game.id,
     title: game.name,
-    image: game.background_image ?? game.short_screenshots?.[0]?.image ?? fallbackImage,
+    image: getPreferredGameImage(game.background_image, game.short_screenshots?.[0]?.image),
     rating: game.rating,
     releaseYear,
     platforms: platforms.length > 0 ? platforms : ['Unknown'],
